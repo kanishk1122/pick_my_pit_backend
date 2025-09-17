@@ -56,7 +56,7 @@ function slugify(text: string): string {
 const PostSchema = new Schema<IPost, IPostModel, IPostMethods>(
   {
     owner: { type: Schema.Types.ObjectId, ref: "User", required: true },
-    images: { type: [Schema.Types.Mixed], default: [] },
+    images: { type: [Schema.Types.Mixed] as any[] },
     title: { type: String, required: true },
     slug: { type: String, index: true },
     discription: String,

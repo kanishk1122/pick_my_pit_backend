@@ -1,11 +1,11 @@
 import { Application } from "express";
-import authRoutes from "./auth.routes.js";
-import userRoutes from "./user.routes.js";
-import postRoutes from "./post.routes.js";
-import addressRoutes from "./address.routes.js";
-import speciesRoutes from "./species.routes.js";
-import breedRoutes from "./breed.routes.js";
-import adminRoutes from "./admin.routes.js";
+import authRoutes from "./auth.routes";
+import userRoutes from "./user.routes";
+import postRoutes from "./post.routes";
+import addressRoutes from "./address.routes";
+import speciesRoutes from "./species.routes";
+import breedRoutes from "./breed.routes";
+import adminRoutes from "./admin.routes";
 
 export const registerRoutes = (app: Application): void => {
   // Health check

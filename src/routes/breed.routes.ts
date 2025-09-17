@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { BreedController } from "../controllers/breed.controller.js";
+import { BreedController } from "../controllers/breed.controller";
 
 const router = Router();
 

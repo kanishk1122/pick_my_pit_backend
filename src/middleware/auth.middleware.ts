@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import { config } from "../config/index.js";
-import UserModel from "../model/user.model.js";
-import AdminModel from "../model/admin.model.js";
+import { config } from "../config/index";
+import UserModel from "../model/user.model";
+import AdminModel from "../model/admin.model";
 
 export interface AuthenticatedRequest extends Request {
   user?: {
@@ -30,7 +30,61 @@ export interface JWTPayload {
   lastname?: string;
 }
 
-// Middleware to verify user token
+// Main auth middleware for cookie-based JWT authentication
+export const authMiddleware = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    // Get token from cookies instead of Authorization header
+    const token = req.cookies.auth_token;
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: "Access denied. No token provided.",
+      });
+    }
+
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET || "your-secret-key"
+    ) as JWTPayload;
+
+    // Verify user exists and is active
+    const user = await UserModel.findById(decoded.id);
+    if (!user || user.status !== "active") {
+      return res.status(401).json({
+        success: false,
+        message: "User not found or inactive.",
+      });
+    }
+
+    req.user = {
+      id: user._id.toString(),
+      email: user.email,
+      role: user.role,
+      firstname: user.firstname,
+      lastname: user.lastname,
+    };
+    next();
+  } catch (error) {
+    if (error instanceof jwt.TokenExpiredError) {
+      return res.status(401).json({
+        success: false,
+        message: "Token expired. Please log in again.",
+      });
+    }
+
+    res.status(400).json({
+      success: false,
+      message: "Invalid token.",
+    });
+  }
+};
+
+// Middleware to verify user token (for header-based auth)
 export const verifyUserToken = async (
   req: AuthenticatedRequest,
   res: Response,
@@ -46,7 +100,10 @@ export const verifyUserToken = async (
       });
     }
 
-    const decoded = jwt.verify(token, config.jwtSecret) as JWTPayload;
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET || "your-secret-key"
+    ) as JWTPayload;
 
     // Verify user exists and is active
     const user = await UserModel.findById(decoded.id);
@@ -57,7 +114,13 @@ export const verifyUserToken = async (
       });
     }
 
-    req.user = decoded;
+    req.user = {
+      id: user._id.toString(),
+      email: user.email,
+      role: user.role,
+      firstname: user.firstname,
+      lastname: user.lastname,
+    };
     next();
   } catch (error) {
     if (error instanceof jwt.TokenExpiredError) {

@@ -11,7 +11,7 @@ const signup_auth: Joi.ObjectSchema = Joi.object({
 
 const login_auth: Joi.ObjectSchema = Joi.object({
   email: Joi.string().email().required(),
-  password: Joi.string().max(20).required(),
+  password: Joi.string().required(),
 });
 
 const post_validation: Joi.ObjectSchema = Joi.object({

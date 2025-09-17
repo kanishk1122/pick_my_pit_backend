@@ -5,7 +5,7 @@ A modern TypeScript-based backend for the Pick My Pit pet adoption platform, fea
 ## 🚀 Features
 
 - **TypeScript**: Fully typed codebase for better development experience
-- **Express.js**: Fast and minimal web framework
+- **Express**: Fast and minimal web framework
 - **MongoDB**: NoSQL database with Mongoose ODM
 - **Socket.IO**: Real-time bidirectional communication
 - **Redis**: Caching and session storage
@@ -33,7 +33,7 @@ src/
 
 ### Prerequisites
 
-- Node.js (v18 or higher)
+- Node (v18 or higher)
 - MongoDB
 - Redis
 - npm or yarn
@@ -244,4 +244,4 @@ This TypeScript version includes:
 ## 📞 Support
 
 For issues and questions, please refer to the project documentation or create an issue in the repository.
-"# pick_my_pit_backend" 
+"# pick_my_pit_backend"

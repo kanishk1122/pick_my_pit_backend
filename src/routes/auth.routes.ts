@@ -1,18 +1,17 @@
 import { Router } from "express";
-import { AuthController } from "../controllers/auth.controller.js";
+import { AuthController } from "../controllers/auth.controller";
 
 const router = Router();
 
-// User Authentication Routes
+// Public routes
 router.post("/register", AuthController.register);
 router.post("/login", AuthController.login);
 router.post("/google-auth", AuthController.googleAuth);
+router.get("/verify-token", AuthController.verifyToken);
+router.post("/logout", AuthController.logout); // No auth middleware needed
 
-// Admin Authentication Routes
+// Admin routes
 router.post("/admin/login", AuthController.adminLogin);
-
-// Simple logout routes (no middleware for now)
-router.post("/logout", AuthController.logout);
-router.post("/admin/logout", AuthController.logout);
+router.get("/admin/verify", AuthController.adminVerify);
 
 export default router;

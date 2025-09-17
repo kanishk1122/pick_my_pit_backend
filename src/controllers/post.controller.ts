@@ -1,11 +1,8 @@
 import { Request, Response } from "express";
-import { AuthenticatedRequest } from "../middleware/auth.middleware.js";
-import PostModel from "../model/post.model.js";
-import {
-  post_validation,
-  post_update_validation,
-} from "../helper/validation.js";
-import { ResponseHelper } from "../helper/utils.js";
+import { AuthenticatedRequest } from "../middleware/auth.middleware";
+import PostModel from "../model/post.model";
+import { post_validation, post_update_validation } from "../helper/validation";
+import { ResponseHelper } from "../helper/utils";
 
 export class PostController {
   // Create new post
@@ -351,16 +348,17 @@ export class PostController {
 
       const total = await PostModel.countDocuments(filter);
 
-      res.status(200).json(
-        ResponseHelper.paginated(
-          posts,
-          total,
-          page,
-          limit,
-          "Filtered posts retrieved successfully",
-     
-        )
-      );
+      res
+        .status(200)
+        .json(
+          ResponseHelper.paginated(
+            posts,
+            total,
+            page,
+            limit,
+            "Filtered posts retrieved successfully"
+          )
+        );
     } catch (error) {
       console.error("Filter posts error:", error);
       res.status(500).json(ResponseHelper.error("Internal server error"));

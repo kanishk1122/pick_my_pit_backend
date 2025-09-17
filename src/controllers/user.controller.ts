@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import { AuthenticatedRequest } from "../middleware/auth.middleware.js";
-import UserModel from "../model/user.model.js";
-import { ResponseHelper } from "../helper/utils.js";
+import { AuthenticatedRequest } from "../middleware/auth.middleware";
+import UserModel from "../model/user.model";
+import { ResponseHelper } from "../helper/utils";
 
 export class UserController {
   // Get all users (Admin only)
@@ -71,7 +71,7 @@ export class UserController {
     res: Response
   ): Promise<void> {
     try {
-      const { id } = req.params;
+      const { id } = req.body.userId;
       const updates = req.body;
 
       // Remove sensitive fields from updates

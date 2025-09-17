@@ -1,8 +1,8 @@
 import { Request, Response } from "express";
-import { AuthenticatedRequest } from "../middleware/auth.middleware.js";
-import BreedModel from "../model/breed.model.js";
-import SpeciesModel from "../model/species.model.js";
-import { ResponseHelper } from "../helper/utils.js";
+import { AuthenticatedRequest } from "../middleware/auth.middleware";
+import BreedModel from "../model/breed.model";
+import SpeciesModel from "../model/species.model";
+import { ResponseHelper } from "../helper/utils";
 import Joi from "joi";
 
 // Validation schemas

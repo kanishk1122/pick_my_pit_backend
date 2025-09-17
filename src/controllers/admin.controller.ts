@@ -1,9 +1,9 @@
 import { Request, Response } from "express";
-import { AuthenticatedRequest } from "../middleware/auth.middleware.js";
-import AdminModel from "../model/admin.model.js";
-import UserModel from "../model/user.model.js";
-import PostModel from "../model/post.model.js";
-import { ResponseHelper } from "../helper/utils.js";
+import { AuthenticatedRequest } from "../middleware/auth.middleware";
+import AdminModel from "../model/admin.model";
+import UserModel from "../model/user.model";
+import PostModel from "../model/post.model";
+import { ResponseHelper } from "../helper/utils";
 import Joi from "joi";
 
 // Validation schemas

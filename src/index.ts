@@ -7,21 +7,28 @@ import { instrument } from "@socket.io/admin-ui";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import session from "express-session";
-import { config } from "./config/index.js";
-import { database } from "./config/database.js";
-import { registerRoutes } from "./routes/index.js";
-import { registerSocketEvents } from "./sockets/index.js";
+import { config } from "./config/index";
+import { database } from "./config/database";
+import { registerRoutes } from "./routes/index";
+import { registerSocketEvents } from "./sockets/index";
 
 const app = express();
 const server = createServer(app);
 
-// CORS configuration
-app.use(
-  cors({
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
-    credentials: true,
-  })
-);
+app.use((req, res, next) => {
+  console.log("Request URL:", req.originalUrl);
+  console.log("Headers:", req.headers);
+  console.log("cookies:", req.cookies);
+  console.log("method:", req.method);
+  next();
+});
+const corsOptions = {
+  origin: ["http://localhost:3000", "http://localhost:5173"], // Only allow requests from your frontend's origin
+  optionsSuccessStatus: 200, // Some legacy browsers need this,
+  withCredentials: true,
+};
+
+// app.use(cors(corsOptions));
 
 // Body parsing middleware
 app.use(express.json({ limit: "12mb" }));
