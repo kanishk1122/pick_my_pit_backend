@@ -27,23 +27,23 @@ export const registerRoutes = (app: Application): void => {
   app.use("/api/admin", adminRoutes);
 
   // Root route
-  app.get("/", (req, res) => {
-    res.status(200).json({
-      success: true,
-      message: "Pick My Pit API v2",
-      version: "2.0.0",
-      endpoints: {
-        auth: "/api/auth",
-        users: "/api/users",
-        posts: "/api/posts",
-        addresses: "/api/addresses",
-        species: "/api/species",
-        breeds: "/api/breeds",
-        admin: "/api/admin",
-        health: "/health",
-      },
-    });
-  });
+  // app.get("/", (req, res) => {
+  //   res.status(200).json({
+  //     success: true,
+  //     message: "Pick My Pit API v2",
+  //     version: "2.0.0",
+  //     endpoints: {
+  //       auth: "/api/auth",
+  //       users: "/api/users",
+  //       posts: "/api/posts",
+  //       addresses: "/api/addresses",
+  //       species: "/api/species",
+  //       breeds: "/api/breeds",
+  //       admin: "/api/admin",
+  //       health: "/health",
+  //     },
+  //   });
+  // });
 
   // 404 handler
   // app.use("*", (req, res) => {

@@ -23,12 +23,19 @@ app.use((req, res, next) => {
   next();
 });
 const corsOptions = {
-  origin: ["http://localhost:3000", "http://localhost:5173"], // Only allow requests from your frontend's origin
-  optionsSuccessStatus: 200, // Some legacy browsers need this,
-  withCredentials: true,
+  origin: "*",
+  optionsSuccessStatus: 200,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  withCredentials: true, // Allow cookies to be sent
 };
 
-// app.use(cors(corsOptions));
+
+app.post("/test-cors", (req, res) => {
+  res.json({ message: "CORS test successful" });
+});
+
+
+app.use(cors(corsOptions));
 
 // Body parsing middleware
 app.use(express.json({ limit: "12mb" }));

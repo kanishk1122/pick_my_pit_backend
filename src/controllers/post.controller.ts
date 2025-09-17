@@ -364,4 +364,39 @@ export class PostController {
       res.status(500).json(ResponseHelper.error("Internal server error"));
     }
   }
+
+  // Get pending approvals (non-active posts)
+  static async getPendingApprovals(req: Request, res: Response): Promise<void> {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const skip = (page - 1) * limit;
+
+      const filter = { status: { $ne: "active" } };
+
+      const posts = await PostModel.find(filter)
+        .populate("owner", "firstname lastname userpic phone email")
+        .populate("address")
+        .skip(skip)
+        .limit(limit)
+        .sort({ createdAt: -1 });
+
+      const total = await PostModel.countDocuments(filter);
+
+      res
+        .status(200)
+        .json(
+          ResponseHelper.paginated(
+            posts,
+            total,
+            page,
+            limit,
+            "Pending approvals retrieved successfully"
+          )
+        );
+    } catch (error) {
+      console.error("Get pending approvals error:", error);
+      res.status(500).json(ResponseHelper.error("Internal server error"));
+    }
+  }
 }

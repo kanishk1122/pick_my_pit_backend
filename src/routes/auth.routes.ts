@@ -12,6 +12,8 @@ router.post("/logout", AuthController.logout); // No auth middleware needed
 
 // Admin routes
 router.post("/admin/login", AuthController.adminLogin);
+//
+// router.options("/admin/login", AuthController.adminLogin);
 router.get("/admin/verify", AuthController.adminVerify);
 
 export default router;

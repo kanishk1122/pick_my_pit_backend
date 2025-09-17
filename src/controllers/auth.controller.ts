@@ -205,6 +205,7 @@ export class AuthController {
         });
         return;
       }
+      console.table(req.body);
 
       const { email, password } = value;
 
