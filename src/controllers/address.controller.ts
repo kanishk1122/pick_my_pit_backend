@@ -100,10 +100,8 @@ export class AddressController {
     res: Response
   ): Promise<void> {
     try {
-      if (!req.user) {
-        res.status(401).json(ResponseHelper.error("User not authenticated"));
-        return;
-      }
+    
+      console.log("Create address request body:", req.user);
 
       const addressData = {
         ...req.body,

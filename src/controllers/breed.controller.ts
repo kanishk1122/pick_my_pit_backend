@@ -83,9 +83,21 @@ export class BreedController {
   // Get breeds by species
   static async getBreedsBySpecies(req: Request, res: Response): Promise<void> {
     try {
-      const { speciesId } = req.params;
+      const { speciesName } = req.params; // Changed from speciesId to speciesName
       const activeOnly = req.query.active === "true";
 
+      // 1. Find the species by its name to get the ID
+      const species = await SpeciesModel.findOne({ name: speciesName });
+
+      if (!species) {
+        res
+          .status(404)
+          .json(ResponseHelper.error(`Species '${speciesName}' not found`));
+        return;
+      }
+
+      // 2. Use the found species ID to query for breeds
+      const speciesId = species._id.toString(); // Convert ObjectId to string
       let breeds;
       if (activeOnly) {
         breeds = await BreedModel.findActiveBySpecies(speciesId);

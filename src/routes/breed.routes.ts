@@ -5,7 +5,7 @@ const router = Router();
 
 // Public routes
 router.get("/", BreedController.getAllBreeds);
-router.get("/species/:speciesId", BreedController.getBreedsBySpecies);
+router.get("/species/:speciesName", BreedController.getBreedsBySpecies);
 router.get("/name/:name", BreedController.getBreedByName);
 router.get("/:id", BreedController.getBreedById);
 

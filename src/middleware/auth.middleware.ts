@@ -23,7 +23,7 @@ export interface AuthenticatedRequest extends Request {
 }
 
 export interface JWTPayload {
-  id: string;
+  userId: string;
   email: string;
   role: string;
   firstname?: string;
@@ -35,16 +35,17 @@ export const authMiddleware = async (
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
-) => {
+): Promise<void> => {
   try {
     // Get token from cookies instead of Authorization header
     const token = req.cookies.auth_token;
 
     if (!token) {
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
         message: "Access denied. No token provided.",
       });
+      return;
     }
 
     const decoded = jwt.verify(
@@ -52,13 +53,17 @@ export const authMiddleware = async (
       process.env.JWT_SECRET || "your-secret-key"
     ) as JWTPayload;
 
+    console.log("Decoded JWT payload:", decoded);
+
     // Verify user exists and is active
-    const user = await UserModel.findById(decoded.id);
+    const user = await UserModel.findById(decoded.userId);
     if (!user || user.status !== "active") {
-      return res.status(401).json({
+      console.log("User not found or inactive for ID:", decoded.userId);
+      res.status(401).json({
         success: false,
         message: "User not found or inactive.",
       });
+      return;
     }
 
     req.user = {
@@ -71,10 +76,11 @@ export const authMiddleware = async (
     next();
   } catch (error) {
     if (error instanceof jwt.TokenExpiredError) {
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
         message: "Token expired. Please log in again.",
       });
+      return;
     }
 
     res.status(400).json({
@@ -106,7 +112,7 @@ export const verifyUserToken = async (
     ) as JWTPayload;
 
     // Verify user exists and is active
-    const user = await UserModel.findById(decoded.id);
+    const user = await UserModel.findById(decoded.userId);
     if (!user || user.status !== "active") {
       return res.status(401).json({
         success: false,
@@ -163,7 +169,14 @@ export const verifyAdminToken = async (
       });
     }
 
-    req.admin = decoded;
+    // Map JWTPayload to req.admin shape (use userId as id)
+    req.admin = {
+      id: decoded.userId,
+      email: decoded.email,
+      role: decoded.role,
+      firstname: decoded.firstname,
+      lastname: decoded.lastname,
+    };
     next();
   } catch (error) {
     if (error instanceof jwt.TokenExpiredError) {
