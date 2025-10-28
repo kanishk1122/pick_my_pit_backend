@@ -21,7 +21,7 @@ const post_validation: Joi.ObjectSchema = Joi.object({
   type: Joi.string().valid("free", "paid").default("free"),
   category: Joi.string().required(),
   species: Joi.string().required(),
-  userId: Joi.string().required(),
+  isNegotiable : Joi.boolean().default(false),
   addressId: Joi.string().required(),
   images: Joi.array().items(Joi.string()).required(),
   age: Joi.object({

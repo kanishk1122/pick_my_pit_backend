@@ -46,9 +46,9 @@ app.use(customCors);
 //   next();
 // });
 
-// Body parsing middleware
-app.use(express.json({ limit: "12mb" }));
-app.use(express.urlencoded({ limit: "12mb", extended: true }));
+// Body parsing middleware - INCREASED LIMIT
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
 // Cookie and session middleware
 app.use(cookieParser());

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { PostController } from "../controllers/post.controller";
+import { authMiddleware } from "../middleware/auth.middleware";
 
 const router = Router();
 
@@ -14,10 +15,10 @@ router.get("/user-posts", PostController.getUserPosts); // Changed route to avoi
 router.get("/:id", PostController.getPostById);
 
 // Protected routes (middleware will be added later)
-router.put("/:id/approve", PostController.approvePost);
-router.put("/:id/reject", PostController.rejectPost);
-router.post("/", PostController.createPost);
-router.put("/:id", PostController.updatePost);
-router.delete("/:id", PostController.deletePost);
+router.put("/:id/approve", authMiddleware, PostController.approvePost);
+router.put("/:id/reject", authMiddleware, PostController.rejectPost);
+router.post("/", authMiddleware, PostController.createPost);
+router.put("/:id", authMiddleware, PostController.updatePost);
+router.delete("/:id", authMiddleware, PostController.deletePost);
 
 export default router;
