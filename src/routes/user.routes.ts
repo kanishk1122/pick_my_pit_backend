@@ -7,12 +7,11 @@ const router = Router();
 // Public routes
 router.get("/:id", UserController.getUserById);
 
-// Protected user routes 
+// Protected user routes
 router.get("/profile/me", authMiddleware, UserController.getProfile);
 router.put("/profile/me", authMiddleware, UserController.updateUser);
-router.put("/:id", authMiddleware, UserController.updateUser);
 
-// Admin only routes 
+// Admin only routes
 router.get("/", authMiddleware, UserController.getAllUsers);
 router.delete("/:id", authMiddleware, UserController.deleteUser);
 

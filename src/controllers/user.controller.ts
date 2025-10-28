@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { AuthenticatedRequest } from "../middleware/auth.middleware";
+import { AuthenticatedRequest, authMiddleware } from "../middleware/auth.middleware";
 import UserModel from "../model/user.model";
 import { ResponseHelper } from "../helper/utils";
 
@@ -71,7 +71,6 @@ export class UserController {
     res: Response
   ): Promise<void> {
     try {
-      const { id } = req.body.userId;
       const updates = req.body;
 
       // Remove sensitive fields from updates
@@ -81,7 +80,7 @@ export class UserController {
       delete updates.sessionToken;
 
       const user = await UserModel.findByIdAndUpdate(
-        id,
+        req.user.id,
         { $set: updates },
         { new: true, select: "-password -sessionToken -emailConfirmToken" }
       );

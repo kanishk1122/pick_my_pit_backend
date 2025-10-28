@@ -290,8 +290,9 @@ export class PostController {
   static async filterPosts(req: Request, res: Response): Promise<void> {
     try {
       const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 10;
+      const limit = parseInt(req.query.limit as string) || 12;
       const skip = (page - 1) * limit;
+      const sortBy = (req.query.sort as string) || "newest";
 
       const filter: any = {}; // Remove default status filter
 
@@ -337,14 +338,39 @@ export class PostController {
         ];
       }
 
+      // Sorting logic
+      let sort: any = {};
+      switch (sortBy) {
+        case "oldest":
+          sort = { createdAt: 1 };
+          break;
+        case "price-low":
+          sort = { amount: 1 };
+          break;
+        case "price-high":
+          sort = { amount: -1 };
+          break;
+        case "title-az":
+          sort = { title: 1 };
+          break;
+        case "title-za":
+          sort = { title: -1 };
+          break;
+        case "newest":
+        default:
+          sort = { createdAt: -1 };
+          break;
+      }
+
       console.log("Filter query:", filter); // Debug log
+      console.log("Sort query:", sort); // Debug log
 
       const posts = await PostModel.find(filter)
         .populate("owner", "firstname lastname userpic phone")
         .populate("address")
         .skip(skip)
         .limit(limit)
-        .sort({ createdAt: -1 });
+        .sort(sort);
 
       const total = await PostModel.countDocuments(filter);
 
