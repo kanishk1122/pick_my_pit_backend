@@ -10,12 +10,14 @@ router.get("/filter", PostController.filterPosts);
 router.get("/", PostController.getAllPosts);
 router.get("/slug/:slug", PostController.getPostBySlug);
 router.get("/approvals", PostController.getPendingApprovals); // Moved before /:id
+router.get("/user-posts", PostController.getUserPosts); // Changed route to avoid conflict
 router.get("/:id", PostController.getPostById);
 
 // Protected routes (middleware will be added later)
+router.put("/:id/approve", PostController.approvePost);
+router.put("/:id/reject", PostController.rejectPost);
 router.post("/", PostController.createPost);
 router.put("/:id", PostController.updatePost);
 router.delete("/:id", PostController.deletePost);
-router.get("/user/my-posts", PostController.getUserPosts);
 
 export default router;

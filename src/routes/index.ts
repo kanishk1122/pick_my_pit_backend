@@ -20,7 +20,7 @@ export const registerRoutes = (app: Application): void => {
   // API routes
   app.use("/api/auth", authRoutes);
   app.use("/api/users", userRoutes);
-  app.use("/api/post", postRoutes);
+  app.use("/api/posts", postRoutes);
   app.use("/api/addresses", addressRoutes);
   app.use("/api/species", speciesRoutes);
   app.use("/api/breeds", breedRoutes);

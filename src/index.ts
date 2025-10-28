@@ -1,16 +1,16 @@
 import express from "express";
 import { createServer } from "http";
-import { Server } from "socket.io";
-import { createAdapter } from "@socket.io/redis-adapter";
-import { createClient } from "redis";
-import { instrument } from "@socket.io/admin-ui";
+// import { Server } from "socket.io";
+// import { createAdapter } from "@socket.io/redis-adapter";
+// import { createClient } from "redis";
+// import { instrument } from "@socket.io/admin-ui";
 import cors from "cors";
-import cookieParser from "cookie-parser";
-import session from "express-session";
+// import cookieParser from "cookie-parser";
+// import session from "express-session";
 import { config } from "./config/index";
 import { database } from "./config/database";
 import { registerRoutes } from "./routes/index";
-import { registerSocketEvents } from "./sockets/index";
+// import { registerSocketEvents } from "./sockets/index";
 
 const app = express();
 const server = createServer(app);
@@ -22,39 +22,36 @@ app.use((req, res, next) => {
   console.log("method:", req.method);
   next();
 });
+
+
 const corsOptions = {
-  origin: "*",
-  optionsSuccessStatus: 200,
+  origin: "http://localhost:5173", // your frontend
+  withCredentials: true,               // allow cookies/auth headers
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  withCredentials: true, // Allow cookies to be sent
 };
 
-
-app.post("/test-cors", (req, res) => {
-  res.json({ message: "CORS test successful" });
-});
-
-
 app.use(cors(corsOptions));
+
+
 
 // Body parsing middleware
 app.use(express.json({ limit: "12mb" }));
 app.use(express.urlencoded({ limit: "12mb", extended: true }));
 
 // Cookie and session middleware
-app.use(cookieParser());
-app.use(
-  session({
-    secret: config.sessionSecret,
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: process.env.NODE_ENV === "production",
-      httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    },
-  })
-);
+// app.use(cookieParser());
+// app.use(
+//   session({
+//     secret: config.sessionSecret,
+//     resave: false,
+//     saveUninitialized: false,
+//     cookie: {
+//       secure: process.env.NODE_ENV === "production",
+//       httpOnly: true,
+//       maxAge: 24 * 60 * 60 * 1000, // 24 hours
+//     },
+//   })
+// );
 
 // Request logging middleware
 app.use((req, res, next) => {
@@ -63,34 +60,35 @@ app.use((req, res, next) => {
 });
 
 // Socket.IO setup
-const io = new Server(server, {
-  cors: {
-    origin: config.adminUiUrl,
-    credentials: true,
-  },
-});
+// const io = new Server(server, {
+//   cors: {
+//     origin: config.adminUiUrl,
+//     credentials: true,
+//   },
+// });
 
 // Redis setup for Socket.IO adapter
-const pubClient = createClient({ url: config.redisUrl });
-const subClient = pubClient.duplicate();
+// const pubClient = createClient({ url: config.redisUrl });
+// const subClient = pubClient.duplicate();
 
-Promise.all([pubClient.connect(), subClient.connect()]).catch(console.error);
+// Promise.all([pubClient.connect(), subClient.connect()]).catch(console.error);
 
-io.adapter(createAdapter(pubClient, subClient));
+// io.adapter(createAdapter(pubClient, subClient));
 
 // Socket.IO Admin UI
-instrument(io, {
-  auth: false,
-  mode: "development",
-  namespaceName: "/admin",
-});
+// instrument(io, {
+//   auth: false,
+//   mode: "development",
+//   namespaceName: "/admin",
+// });
 
 // Connect to database
 database.connect().catch(console.error);
 
 // Register routes and socket events
+
 registerRoutes(app);
-registerSocketEvents(io);
+// registerSocketEvents(io);
 
 // Global error handler
 app.use(

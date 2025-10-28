@@ -399,4 +399,100 @@ export class PostController {
       res.status(500).json(ResponseHelper.error("Internal server error"));
     }
   }
+
+  // Approve post
+  static async approvePost(
+    req: AuthenticatedRequest,
+    res: Response
+  ): Promise<void> {
+    try {
+      const { id } = req.params;
+
+      // if (!req.user) {
+      //   res.status(401).json(ResponseHelper.error("User not authenticated"));
+      //   return;
+      // }
+
+      // Find the post
+      const post = await PostModel.findById(id);
+      if (!post) {
+        res.status(404).json(ResponseHelper.error("Post not found"));
+        return;
+      }
+
+      // Check if user is admin or superadmin
+      if (!["admin", "superadmin"].includes(req.user.role)) {
+        res
+          .status(403)
+          .json(ResponseHelper.error("Only admins can approve posts"));
+        return;
+      }
+
+      // Update status to active
+      const updatedPost = await PostModel.findByIdAndUpdate(
+        id,
+        { $set: { status: "active" } },
+        { new: true }
+      )
+        .populate("owner", "firstname lastname userpic")
+        .populate("address");
+
+      res
+        .status(200)
+        .json(
+          ResponseHelper.success(updatedPost, "Post approved successfully")
+        );
+    } catch (error) {
+      console.error("Approve post error:", error);
+      res.status(500).json(ResponseHelper.error("Internal server error"));
+    }
+  }
+
+  // Reject post
+  static async rejectPost(
+    req: AuthenticatedRequest,
+    res: Response
+  ): Promise<void> {
+    try {
+      const { id } = req.params;
+
+      // if (!req.user) {
+      //   res.status(401).json(ResponseHelper.error("User not authenticated"));
+      //   return;
+      // }
+
+      // Find the post
+      const post = await PostModel.findById(id);
+      if (!post) {
+        res.status(404).json(ResponseHelper.error("Post not found"));
+        return;
+      }
+
+      // Check if user is admin or superadmin
+      // if (!["admin", "superadmin"].includes(req.user.role)) {
+      //   res
+      //     .status(403)
+      //     .json(ResponseHelper.error("Only admins can reject posts"));
+      //   return;
+      // }
+
+      // Update status to rejected
+      const updatedPost = await PostModel.findByIdAndUpdate(
+        id,
+        { $set: { status: "rejected" } },
+        { new: true }
+      )
+        .populate("owner", "firstname lastname userpic")
+        .populate("address");
+
+      res
+        .status(200)
+        .json(
+          ResponseHelper.success(updatedPost, "Post rejected successfully")
+        );
+    } catch (error) {
+      console.error("Reject post error:", error);
+      res.status(500).json(ResponseHelper.error("Internal server error"));
+    }
+  }
 }
