@@ -4,9 +4,8 @@ import { createServer } from "http";
 // import { createAdapter } from "@socket.io/redis-adapter";
 // import { createClient } from "redis";
 // import { instrument } from "@socket.io/admin-ui";
-import cors from "cors";
-// import cookieParser from "cookie-parser";
-// import session from "express-session";
+import cookieParser from "cookie-parser";
+import session from "express-session";
 import { config } from "./config/index";
 import { database } from "./config/database";
 import { registerRoutes } from "./routes/index";
@@ -15,49 +14,62 @@ import { registerRoutes } from "./routes/index";
 const app = express();
 const server = createServer(app);
 
-app.use((req, res, next) => {
-  console.log("Request URL:", req.originalUrl);
-  console.log("Headers:", req.headers);
-  console.log("cookies:", req.cookies);
-  console.log("method:", req.method);
+// --- START: Custom CORS Middleware ---
+const customCors: express.RequestHandler = (req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "http://localhost:5173");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, DELETE, OPTIONS"
+  );
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+  );
+
+  // Handle preflight requests
+  if (req.method === "OPTIONS") {
+    res.status(200).end();
+    return;
+  }
+
   next();
-});
-
-
-const corsOptions = {
-  origin: "http://localhost:5173", // your frontend
-  withCredentials: true,               // allow cookies/auth headers
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
 };
+app.use(customCors);
+// --- END: Custom CORS Middleware ---
 
-app.use(cors(corsOptions));
-
-
+// app.use((req, res, next) => {
+//   console.log("Request URL:", req.originalUrl);
+//   console.log("Headers:", req.headers);
+//   console.log("cookies:", req.cookies);
+//   console.log("method:", req.method);
+//   next();
+// });
 
 // Body parsing middleware
 app.use(express.json({ limit: "12mb" }));
 app.use(express.urlencoded({ limit: "12mb", extended: true }));
 
 // Cookie and session middleware
-// app.use(cookieParser());
-// app.use(
-//   session({
-//     secret: config.sessionSecret,
-//     resave: false,
-//     saveUninitialized: false,
-//     cookie: {
-//       secure: process.env.NODE_ENV === "production",
-//       httpOnly: true,
-//       maxAge: 24 * 60 * 60 * 1000, // 24 hours
-//     },
-//   })
-// );
+app.use(cookieParser());
+app.use(
+  session({
+    secret: config.sessionSecret,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    },
+  })
+);
 
 // Request logging middleware
-app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.originalUrl}`);
-  next();
-});
+// app.use((req, res, next) => {
+//   console.log(`${new Date().toISOString()} - ${req.method} ${req.originalUrl}`);
+//   next();
+// });
 
 // Socket.IO setup
 // const io = new Server(server, {
