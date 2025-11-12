@@ -19,6 +19,37 @@ export class PostController {
         return;
       }
 
+      // Custom validation for phone numbers and links
+      const phoneRegex =
+        /(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g;
+      const linkRegex = /(https?:\/\/[^\s]+)/g;
+
+      if (phoneRegex.test(value.title) || linkRegex.test(value.title)) {
+        res
+          .status(400)
+          .json(
+            ResponseHelper.error("Title cannot contain phone numbers or links.")
+          );
+        return;
+      }
+
+      phoneRegex.lastIndex = 0; // Reset regex state
+      linkRegex.lastIndex = 0; // Reset regex state
+
+      if (
+        phoneRegex.test(value.discription) ||
+        linkRegex.test(value.discription)
+      ) {
+        res
+          .status(400)
+          .json(
+            ResponseHelper.error(
+              "Description cannot contain phone numbers or links."
+            )
+          );
+        return;
+      }
+
       if (!req.user) {
         res.status(401).json(ResponseHelper.error("User not authenticated"));
         return;
@@ -163,6 +194,41 @@ export class PostController {
         res
           .status(400)
           .json(ResponseHelper.error("Validation failed", error.details));
+        return;
+      }
+
+      // Custom validation for phone numbers and links
+      const phoneRegex =
+        /(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g;
+      const linkRegex = /(https?:\/\/[^\s]+)/g;
+
+      if (
+        value.title &&
+        (phoneRegex.test(value.title) || linkRegex.test(value.title))
+      ) {
+        res
+          .status(400)
+          .json(
+            ResponseHelper.error("Title cannot contain phone numbers or links.")
+          );
+        return;
+      }
+
+      phoneRegex.lastIndex = 0; // Reset regex state
+      linkRegex.lastIndex = 0; // Reset regex state
+
+      if (
+        value.discription &&
+        (phoneRegex.test(value.discription) ||
+          linkRegex.test(value.discription))
+      ) {
+        res
+          .status(400)
+          .json(
+            ResponseHelper.error(
+              "Description cannot contain phone numbers or links."
+            )
+          );
         return;
       }
 

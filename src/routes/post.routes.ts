@@ -10,8 +10,8 @@ router.get("/filter", PostController.filterPosts);
 // Public routes
 router.get("/", PostController.getAllPosts);
 router.get("/slug/:slug", PostController.getPostBySlug);
-router.get("/approvals", PostController.getPendingApprovals); // Moved before /:id
-router.get("/user-posts", PostController.getUserPosts); // Changed route to avoid conflict
+router.get("/approvals", authMiddleware, PostController.getPendingApprovals); // Moved before /:id
+router.get("/user-posts",authMiddleware, PostController.getUserPosts); // Changed route to avoid conflict
 router.get("/:id", PostController.getPostById);
 
 // Protected routes (middleware will be added later)

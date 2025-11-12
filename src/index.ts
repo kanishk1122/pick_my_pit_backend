@@ -16,7 +16,21 @@ const server = createServer(app);
 
 // --- START: Custom CORS Middleware ---
 const customCors: express.RequestHandler = (req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "http://localhost:5173");
+  const allowedOrigins = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://192.168.29.217:5173",
+    "http://192.168.29.217:3000",
+  ];
+  const origin = req.headers.origin;
+
+  console.log("Request origin:", origin);
+  console.log("Request cookies:", req.cookies);
+
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  }
+
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader(
     "Access-Control-Allow-Methods",
@@ -24,7 +38,7 @@ const customCors: express.RequestHandler = (req, res, next) => {
   );
   res.setHeader(
     "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization, Cookie"
   );
 
   // Handle preflight requests
@@ -58,8 +72,9 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env.NODE_ENV === "production",
+      secure: false, // Set to false for HTTP (IP address access)
       httpOnly: true,
+      sameSite: "lax", // Changed from default to 'lax' for cross-origin
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     },
   })
@@ -120,8 +135,10 @@ app.use(
 );
 
 // Start server
-server.listen(config.port, () => {
-  console.log(`🚀 Server is running on port ${config.port}`);
-  // console.log(`📊 Admin UI available at http://localhost:${config.port}/admin`);
+server.listen(config.port, "0.0.0.0", () => {
+  console.log(`🚀 Server is running on http://0.0.0.0:${config.port}`);
+  console.log(
+    `📡 Access on your network: http://192.168.29.217:${config.port}`
+  );
   console.log(`🌍 Environment: ${process.env.NODE_ENV || "development"}`);
 });

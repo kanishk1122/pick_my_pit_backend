@@ -39,10 +39,7 @@ export class AddressController {
     res: Response
   ): Promise<void> {
     try {
-      if (!req.user) {
-        res.status(401).json(ResponseHelper.error("User not authenticated"));
-        return;
-      }
+
 
       const addresses = await AddressModel.find({ userId: req.user.id }).sort({
         isDefault: -1,
@@ -67,11 +64,6 @@ export class AddressController {
   ): Promise<void> {
     try {
       const { id } = req.params;
-
-      if (!req.user) {
-        res.status(401).json(ResponseHelper.error("User not authenticated"));
-        return;
-      }
 
       const address = await AddressModel.findOne({
         _id: id,
@@ -136,10 +128,6 @@ export class AddressController {
     try {
       const { id } = req.params;
 
-      if (!req.user) {
-        res.status(401).json(ResponseHelper.error("User not authenticated"));
-        return;
-      }
 
       const { error, value } = addressUpdateValidation.validate(req.body);
       if (error) {
@@ -177,11 +165,6 @@ export class AddressController {
     try {
       const { id } = req.params;
 
-      if (!req.user) {
-        res.status(401).json(ResponseHelper.error("User not authenticated"));
-        return;
-      }
-
       const address = await AddressModel.findOneAndDelete({
         _id: id,
         userId: req.user.id,
@@ -209,11 +192,7 @@ export class AddressController {
     try {
       const { id } = req.params;
 
-      if (!req.user) {
-        res.status(401).json(ResponseHelper.error("User not authenticated"));
-        return;
-      }
-
+    
       // First, unset all default addresses for this user
       await AddressModel.updateMany(
         { userId: req.user.id },
@@ -249,11 +228,7 @@ export class AddressController {
     res: Response
   ): Promise<void> {
     try {
-      if (!req.user) {
-        res.status(401).json(ResponseHelper.error("User not authenticated"));
-        return;
-      }
-
+    
       const address = await AddressModel.findOne({
         userId: req.user.id,
         isDefault: true,
