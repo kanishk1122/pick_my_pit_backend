@@ -57,7 +57,6 @@ export class AddressController {
     }
   }
 
-  // Get address by ID
   static async getAddressById(
     req: AuthenticatedRequest,
     res: Response
