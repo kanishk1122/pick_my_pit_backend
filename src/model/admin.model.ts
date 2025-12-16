@@ -1,5 +1,7 @@
 import mongoose, { Document, Model, Schema } from "mongoose";
 import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+import { config } from "../config/index";
 
 export interface IAdmin extends Document {
   firstname: string;
@@ -90,7 +92,12 @@ adminSchema.methods.comparePassword = async function (
 };
 
 adminSchema.methods.generateSessionToken = function (): string {
-  return `admin_${this._id}_${Date.now()}`;
+  const payload = {
+    id: this._id,
+    email: this.email,
+    role: this.role,
+  };
+  return jwt.sign(payload, config.jwtSecret, { expiresIn: "30d" });
 };
 
 // Static methods

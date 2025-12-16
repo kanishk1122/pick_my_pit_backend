@@ -19,11 +19,12 @@ export interface AuthenticatedRequest extends Request {
     firstname?: string;
     lastname?: string;
   };
-  adminUser?: any;
+  adminUser?: boolean;
 }
 
 export interface JWTPayload {
-  userId: string;
+  id?: string; // For admin
+  userId?: string; // For regular user
   email: string;
   role: string;
   firstname?: string;
@@ -146,20 +147,31 @@ export const verifyUserToken = async (
 // Middleware to verify admin token
 export const verifyAdminToken = async (
   req: AuthenticatedRequest,
-  res: Response,
-  next: NextFunction
+  res: any,
+  next: any
 ) => {
   try {
-    const token = req.headers.authorization?.split(" ")[1];
+    const token =
+      req.headers.cookie &&
+      req.headers.cookie.split(" ")[0].replace("adminToken=", "") ||
+      req.headers.cookie.split(" ")[0].replace("adminToken=", "") ||
+      req.headers.cookie.split(" ")[0].replace("token=", "");
 
+
+    console.log(
+      "Admin token from cookie:",
+      { token },
+      req.headers.cookie.split(" ")[0].replace("adminToken=", "")
+    );
     if (!token) {
       return res.status(401).json({
         success: false,
-        msg: "Access denied. No token provided.",
+        msg: "Access denied. No token provided.vsdvsdvsv",
       });
     }
 
     const decoded = jwt.verify(token, config.jwtSecret) as JWTPayload;
+    console.log("Decoded admin JWT payload:", decoded);
 
     // Check if token contains admin role
     if (!decoded.role || !["admin", "superadmin"].includes(decoded.role)) {
@@ -169,14 +181,14 @@ export const verifyAdminToken = async (
       });
     }
 
-    // Map JWTPayload to req.admin shape (use userId as id)
     req.admin = {
-      id: decoded.userId,
+      id: decoded.id, // Use 'id' from admin token payload
       email: decoded.email,
       role: decoded.role,
       firstname: decoded.firstname,
       lastname: decoded.lastname,
     };
+    req.adminUser = true;
     next();
   } catch (error) {
     if (error instanceof jwt.TokenExpiredError) {
@@ -186,9 +198,12 @@ export const verifyAdminToken = async (
       });
     }
 
+    res.clearCookie("adminToken");
+    res.clearCookie("auth_token");
+
     res.status(400).json({
       success: false,
-      msg: "Invalid token.",
+      msg: "Invalid token. ggg",
     });
   }
 };
@@ -214,7 +229,7 @@ export const validateAdminExists = async (
       const admin = await AdminModel.findById(req.admin.id);
       if (admin && admin.status === "active") {
         adminExists = true;
-        req.adminUser = admin;
+        req.adminUser = true;
       }
     } catch (err) {
       console.log("Admin model check error:", err);
@@ -230,7 +245,7 @@ export const validateAdminExists = async (
         });
         if (admin) {
           adminExists = true;
-          req.adminUser = admin;
+          req.adminUser = true;
         }
       } catch (err) {
         console.log("User model check error:", err);

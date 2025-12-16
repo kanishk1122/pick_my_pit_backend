@@ -21,7 +21,7 @@ export interface IPost extends Document {
   breedSlug: string;
   address: Types.ObjectId;
   age?: IAge;
-  status: "available" | "sold" | "adopted" | "pending";
+  status: "active" | "sold" | "adopted" | "pending" | "rejected";
   createdAt: Date;
   updatedAt: Date;
   formattedAge: string;
@@ -29,7 +29,7 @@ export interface IPost extends Document {
 
 export interface IPostMethods {
   updateStatus(
-    newStatus: "available" | "sold" | "adopted" | "pending"
+    newStatus: "active" | "sold" | "adopted" | "pending" | "rejected"
   ): Promise<IPost>;
 }
 
@@ -78,8 +78,8 @@ const PostSchema = new Schema<IPost, IPostModel, IPostMethods>(
     },
     status: {
       type: String,
-      enum: ["available", "sold", "adopted", "pending"],
-      default: "available",
+      enum: ["active", "sold", "adopted", "pending", "rejected"],
+      default: "pending",
     },
   },
   {
@@ -108,8 +108,8 @@ PostSchema.pre("save", function (next) {
 });
 
 PostSchema.virtual("formattedAge").get(function () {
-  if (!(this  as any).age || !(this  as any).age.value) return "";
-  const { value, unit } = (this  as any).age;
+  if (!(this as any).age || !(this as any).age.value) return "";
+  const { value, unit } = (this as any).age;
   const unitStr = value === 1 ? unit.slice(0, -1) : unit;
   return `${value} ${unitStr} old`;
 });
@@ -130,7 +130,7 @@ PostSchema.statics.findBySlug = function (slug: string) {
 };
 
 PostSchema.statics.findAvailable = function () {
-  return this.find({ status: "available" })
+  return this.find({ status: "active" })
     .populate("owner", "firstname lastname userpic")
     .populate("address");
 };
@@ -149,7 +149,7 @@ PostSchema.statics.formatAge = function (age: IAge): string {
 };
 
 PostSchema.methods.updateStatus = async function (
-  newStatus: "available" | "sold" | "adopted" | "pending"
+  newStatus: "active" | "sold" | "adopted" | "pending" | "rejected"
 ): Promise<IPost> {
   (this as any).status = newStatus;
   return (await this.save()) as any;

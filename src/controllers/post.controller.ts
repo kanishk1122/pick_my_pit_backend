@@ -3,6 +3,7 @@ import { AuthenticatedRequest } from "../middleware/auth.middleware";
 import PostModel from "../model/post.model";
 import { post_validation, post_update_validation } from "../helper/validation";
 import { ResponseHelper } from "../helper/utils";
+import { Types } from "mongoose";
 
 export class PostController {
   // Create new post
@@ -141,6 +142,11 @@ export class PostController {
   static async getPostById(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
+
+      if (!Types.ObjectId.isValid(id)) {
+        res.status(400).json(ResponseHelper.error("Invalid post ID format."));
+        return;
+      }
 
       const post = await PostModel.findById(id)
         .populate("owner", "firstname lastname userpic phone email")
@@ -460,12 +466,50 @@ export class PostController {
   // Get pending approvals (non-active posts)
   static async getPendingApprovals(req: Request, res: Response): Promise<void> {
     try {
+      console.log("Fetching approvals with filters:", req.query);
+
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
       const skip = (page - 1) * limit;
 
-      const filter = { status: { $ne: "active" } };
+      // 1. Extract Query Parameters
+      const { search, status, species } = req.query;
 
+      // 2. Initialize Filter Object
+      const filter: any = {};
+
+      // --- Status Filter ---
+      if (status) {
+        // If frontend specifically asks for "all", we don't filter by status.
+        // Otherwise, we filter by the specific status (pending, approved, rejected)
+        if (status !== "all") {
+          filter.status = status;
+        }
+      } else {
+        // Default Fallback: If no status param is provided at all,
+        // strictly show "pending" (matches route name intent)
+        filter.status = "pending";
+      }
+
+      // --- Species Filter ---
+      if (species && species !== "all") {
+        filter.species = species;
+      }
+
+      // --- Search Filter (Regex) ---
+      if (search) {
+        // Create a case-insensitive regex
+        const searchRegex = new RegExp(search as string, "i");
+
+        // Search in Title, Description, or Breed
+        filter.$or = [
+          { title: searchRegex },
+          { description: searchRegex },
+          { breed: searchRegex },
+        ];
+      }
+
+      // 3. Execute Query with the Filter
       const posts = await PostModel.find(filter)
         .populate("owner", "firstname lastname userpic phone email")
         .populate("address")
@@ -473,7 +517,10 @@ export class PostController {
         .limit(limit)
         .sort({ createdAt: -1 });
 
+      // 4. Get Total Count based on the SAME filter (Crucial for correct pagination)
       const total = await PostModel.countDocuments(filter);
+
+      console.log(`Found ${posts.length} posts. Total matching: ${total}`);
 
       res
         .status(200)
@@ -483,7 +530,7 @@ export class PostController {
             total,
             page,
             limit,
-            "Pending approvals retrieved successfully"
+            "Approvals retrieved successfully"
           )
         );
     } catch (error) {
@@ -513,7 +560,7 @@ export class PostController {
       }
 
       // Check if user is admin or superadmin
-      if (!["admin", "superadmin"].includes(req.user.role)) {
+      if (!req.user || !["admin", "superadmin"].includes(req.user.role)) {
         res
           .status(403)
           .json(ResponseHelper.error("Only admins can approve posts"));
@@ -523,7 +570,7 @@ export class PostController {
       // Update status to active
       const updatedPost = await PostModel.findByIdAndUpdate(
         id,
-        { $set: { status: "active" } },
+        { $set: { status: "available" } },
         { new: true }
       )
         .populate("owner", "firstname lastname userpic")
@@ -561,12 +608,12 @@ export class PostController {
       }
 
       // Check if user is admin or superadmin
-      // if (!["admin", "superadmin"].includes(req.user.role)) {
-      //   res
-      //     .status(403)
-      //     .json(ResponseHelper.error("Only admins can reject posts"));
-      //   return;
-      // }
+      if (!req.user || !["admin", "superadmin"].includes(req.user.role)) {
+        res
+          .status(403)
+          .json(ResponseHelper.error("Only admins can reject posts"));
+        return;
+      }
 
       // Update status to rejected
       const updatedPost = await PostModel.findByIdAndUpdate(

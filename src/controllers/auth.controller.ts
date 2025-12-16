@@ -245,15 +245,17 @@ export class AuthController {
 
       const token = await admin.generateSessionToken();
 
-      // res.cookie("adminToken", token, {
-      //   httpOnly: true,
-      //   secure: false, // Set to true in production with HTTPS
-      //   sameSite: "lax",
-      //   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-      //   path: "/",
-      // });
+      console.log({token} , "t his token is gerated from admin model");
 
-      console.table(req.cookies);
+      res.cookie("adminToken", token, {
+        httpOnly: true,
+        secure: false, // Set to true in production with HTTPS
+        sameSite: "lax",
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        path: "/",
+      });
+
+      console.log(req.cookies);
       res.status(200).json({
         success: true,
         message: "Admin login successful",
@@ -267,8 +269,7 @@ export class AuthController {
             status: admin.status,
             userpic: admin.userpic,
           },
-        },
-        token: token
+        }
       });
     } catch (error) {
       console.error("Admin login error:", error);
@@ -308,17 +309,9 @@ export class AuthController {
 
   static async adminVerify(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
-      const admintoken = req.cookies.admin_token;
-      console.table(req.cookies);
+      console.log("Verifying admin with ID:", req.admin);
 
-      if (!admintoken) {
-        res.status(401).json({
-          success: false,
-          message: "Unauthorized",
-        });
-        return;
-      }
-      const admin = await AdminModel.findById(admintoken);
+      const admin = await AdminModel.findById(req.admin?.id);
       if (!admin) {
         res.status(401).json({
           success: false,

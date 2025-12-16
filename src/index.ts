@@ -24,8 +24,9 @@ const customCors: express.RequestHandler = (req, res, next) => {
   ];
   const origin = req.headers.origin;
 
-  console.log("Request origin:", origin);
-  console.log("Request cookies:", req.cookies);
+  // console.log("Request origin:", origin);
+  // console.log("Request cookies:", req.headers.cookie);
+  console.log("got req ");
 
   if (origin && allowedOrigins.includes(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);

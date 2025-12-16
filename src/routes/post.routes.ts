@@ -1,16 +1,16 @@
 import { Router } from "express";
 import { PostController } from "../controllers/post.controller";
-import { authMiddleware } from "../middleware/auth.middleware";
+import { authMiddleware , verifyAdminToken } from "../middleware/auth.middleware";
 
 const router = Router();
 
 // Filter route - must come before /:id route
 router.get("/filter", PostController.filterPosts);
 
+router.get("/pending-approvals", verifyAdminToken, PostController.getPendingApprovals);
 // Public routes
 router.get("/", PostController.getAllPosts);
 router.get("/slug/:slug", PostController.getPostBySlug);
-router.get("/approvals", authMiddleware, PostController.getPendingApprovals); // Moved before /:id
 router.get("/user-posts",authMiddleware, PostController.getUserPosts); // Changed route to avoid conflict
 router.get("/:id", PostController.getPostById);
 
