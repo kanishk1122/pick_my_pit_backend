@@ -86,29 +86,22 @@ export class PostController {
       const limit = parseInt(req.query.limit as string) || 10;
       const skip = (page - 1) * limit;
 
-      const filter: any = {};
+      const filter: any = { status: "available" }; // Default to available posts
 
-      // // Filter by status
-      // if (req.query.status) {
-      //   filter.status = req.query.status;
-      // } else {
-      //   filter.status = "available"; // Default to available posts
-      // }
+      // Filter by species
+      if (req.query.species && req.query.species !== "") {
+        filter.species = { $regex: new RegExp(`^${req.query.species}$`, "i") };
+      }
 
-      // // Filter by species
-      // if (req.query.species) {
-      //   filter.species = req.query.species;
-      // }
+      // Filter by breed/category
+      if (req.query.breed && req.query.breed !== "") {
+        filter.category = { $regex: new RegExp(`^${req.query.breed}$`, "i") };
+      }
 
-      // // Filter by category/breed
-      // if (req.query.category) {
-      //   filter.category = req.query.category;
-      // }
-
-      // // Filter by type (free/paid)
-      // if (req.query.type) {
-      //   filter.type = req.query.type;
-      // }
+      // Filter by type (free/paid)
+      if (req.query.type && req.query.type !== "") {
+        filter.type = req.query.type;
+      }
 
       const posts = await PostModel.find(filter)
         .populate("owner", "firstname lastname userpic")
@@ -366,7 +359,7 @@ export class PostController {
       const skip = (page - 1) * limit;
       const sortBy = (req.query.sort as string) || "newest";
 
-      const filter: any = {}; // Remove default status filter
+      const filter: any = { status: "available" }; // Default to available posts
 
       // Filter by status only if explicitly provided
       if (req.query.status && req.query.status !== "") {
@@ -375,12 +368,12 @@ export class PostController {
 
       // Filter by species
       if (req.query.species && req.query.species !== "") {
-        filter.species = { $regex: req.query.species, $options: "i" };
+        filter.species = { $regex: new RegExp(`^${req.query.species}$`, "i") };
       }
 
       // Filter by breed/category
       if (req.query.breed && req.query.breed !== "") {
-        filter.category = { $regex: req.query.breed, $options: "i" };
+        filter.category = { $regex: new RegExp(`^${req.query.breed}$`, "i") };
       }
 
       // Filter by type (free/paid)
@@ -388,14 +381,12 @@ export class PostController {
         filter.type = req.query.type;
       }
 
-      // Filter by price range (only for paid posts or when no type filter)
-      const minPrice = parseFloat(req.query.minPrice as string) || 0;
-      const maxPrice = parseFloat(req.query.maxPrice as string) || 100000;
+      // Filter by price range, only if type is 'paid'
+      if (req.query.type === "paid") {
+        const minPrice = parseFloat(req.query.minPrice as string) || 0;
+        const maxPrice =
+          parseFloat(req.query.maxPrice as string) || Number.MAX_SAFE_INTEGER;
 
-      if (
-        req.query.type !== "free" &&
-        (req.query.minPrice || req.query.maxPrice)
-      ) {
         filter.amount = {
           $gte: minPrice,
           $lte: maxPrice,

@@ -87,7 +87,9 @@ export class BreedController {
       const activeOnly = req.query.active === "true";
 
       // 1. Find the species by its name to get the ID
-      const species = await SpeciesModel.findOne({ name: speciesName });
+      const species = await SpeciesModel.findOne({
+        name: { $regex: new RegExp(`^${speciesName}$`, "i") },
+      });
 
       if (!species) {
         res
