@@ -26,7 +26,7 @@ const customCors: express.RequestHandler = (req, res, next) => {
 
   // console.log("Request origin:", origin);
   // console.log("Request cookies:", req.headers.cookie);
-  console.log("got req ");
+  // console.log("got req ");
 
   if (origin && allowedOrigins.includes(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
@@ -136,10 +136,10 @@ app.use(
 );
 
 // Start server
-server.listen(config.port, "0.0.0.0", () => {
-  console.log(`🚀 Server is running on http://0.0.0.0:${config.port}`);
+server.listen(config.port, () => {
+  console.log(`🚀 Server is running on http://localhost:${config.port}`);
   console.log(
-    `📡 Access on your network: http://192.168.29.217:${config.port}`
+    `📡 Access on your network: http://localhost:${config.port}`
   );
   console.log(`🌍 Environment: ${process.env.NODE_ENV || "development"}`);
 });

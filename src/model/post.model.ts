@@ -79,7 +79,7 @@ const PostSchema = new Schema<IPost, IPostModel, IPostMethods>(
     status: {
       type: String,
       enum: ["active", "sold", "adopted", "pending", "rejected"],
-      default: "pending",
+      default: "active",
     },
   },
   {

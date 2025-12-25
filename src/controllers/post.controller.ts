@@ -4,6 +4,9 @@ import PostModel from "../model/post.model";
 import { post_validation, post_update_validation } from "../helper/validation";
 import { ResponseHelper } from "../helper/utils";
 import { Types } from "mongoose";
+import mongoose from "mongoose";
+import AddressModel from "../model/address.model";
+import Address from "ipaddr.js";
 
 export class PostController {
   // Create new post
@@ -19,6 +22,8 @@ export class PostController {
           .json(ResponseHelper.error("Validation failed", error.details));
         return;
       }
+
+      console.log("Create post request body:", req.body);
 
       // Custom validation for phone numbers and links
       const phoneRegex =
@@ -59,6 +64,7 @@ export class PostController {
       const postData = {
         ...value,
         owner: req.user.id,
+        address: value.addressId,
       };
 
       const post = new PostModel(postData);
@@ -359,7 +365,8 @@ export class PostController {
       const skip = (page - 1) * limit;
       const sortBy = (req.query.sort as string) || "newest";
 
-      const filter: any = { status: "available" }; // Default to available posts
+      const filter: any = { status: "active" }; // Default to available posts
+      console.log("Initial filter:", req.query);
 
       // Filter by status only if explicitly provided
       if (req.query.status && req.query.status !== "") {
@@ -392,6 +399,19 @@ export class PostController {
           $lte: maxPrice,
         };
       }
+      if(req.query.minPrice === "" && req.query.maxPrice === ""){
+        delete filter.amount;
+      }
+      if(Number(req.query.minPrice) > 0 ){
+        const minPrice = parseFloat(req.query.minPrice as string) || 0;
+        filter.amount = { $gte: minPrice  };
+      }
+      if(req.query && Number(req.query.maxPrice) > 0 ){
+        const maxPrice =
+          parseFloat(req.query.maxPrice as string) || Number.MAX_SAFE_INTEGER;
+        filter.amount = { $lte: maxPrice };
+      }
+
 
       // Search by title or description (note: using 'discription' to match DB)
       if (req.query.search && req.query.search !== "") {
@@ -399,6 +419,41 @@ export class PostController {
           { title: { $regex: req.query.search, $options: "i" } },
           { discription: { $regex: req.query.search, $options: "i" } },
         ];
+      }
+
+      // Location-based filtering
+      if (req.query.nearMe === "true") {
+        const longitude = parseFloat(req.query.longitude as string);
+        const latitude = parseFloat(req.query.latitude as string);
+        const maxDistanceKm = parseFloat(req.query.maxDistance as string); // Distance in KM
+
+        if (!isNaN(longitude) && !isNaN(latitude) && !isNaN(maxDistanceKm)) {
+          // 1. Calculate the radius in radians (required for $centerSphere)
+          // Earth radius is approx 6378.1 km
+          const radiusInRadians = maxDistanceKm / 6378.1;
+
+          // 2. Find addresses within this range using $geoWithin
+          const addressIds = await AddressModel.find({
+            location: {
+              $geoWithin: {
+                $centerSphere: [
+                  [longitude, latitude], // Center: [User's Long, User's Lat]
+                  radiusInRadians, // Range: Distance in radians
+                ],
+              },
+            },
+          }).distinct("_id");
+
+          if (addressIds.length > 0) {
+            filter.address = {
+              $in: addressIds.map((id: any) => new mongoose.Types.ObjectId(id)),
+            };
+          } else {
+            // Optimization: If no addresses found nearby, return empty immediately
+            // or ensure the filter returns nothing.
+            filter.address = { $in: [] };
+          }
+        }
       }
 
       // Sorting logic

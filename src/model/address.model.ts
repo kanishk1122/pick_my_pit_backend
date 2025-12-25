@@ -1,12 +1,14 @@
-import mongoose, { Document, Model } from 'mongoose';
+import mongoose, { Document, Model } from "mongoose";
 
 interface IAddress extends Document {
   userId: mongoose.Types.ObjectId;
   street: string;
   city: string;
   state: string;
-  latitude?: number;
-  longitude?: number;
+  location: {
+    type: "Point";
+    coordinates: [number, number];
+  };
   landmark?: string;
   postalCode: string;
   country: string;
@@ -32,11 +34,16 @@ const addressSchema = new mongoose.Schema<IAddress>(
       type: String,
       required: true,
     },
-    latitude: {
-      type: Number,
-    },
-    longitude: {
-      type: Number,
+    location: {
+      type: {
+        type: String,
+        enum: ["Point"],
+        default: "Point",
+      },
+      coordinates: {
+        type: [Number],
+        required: true,
+      },
     },
     landmark: {
       type: String,
@@ -45,7 +52,7 @@ const addressSchema = new mongoose.Schema<IAddress>(
       type: String,
       required: true,
       validate: {
-        validator(v:string) {
+        validator(v: string) {
           return /^\d{6}$/.test(v);
         },
         message(props) {
@@ -65,19 +72,24 @@ const addressSchema = new mongoose.Schema<IAddress>(
   { timestamps: true }
 );
 
+addressSchema.index({ location: "2dsphere" });
+
 addressSchema.pre<IAddress>("save", async function (next) {
   if (this.isModified("isDefault") && this.isDefault) {
     await (this.constructor as Model<IAddress>).updateMany(
       {
-        userId:this.userId,
-        _id:{ $ne:this._id},
-       }, 
-       { isDefault:false }
-     );
-   }
-   next();
+        userId: this.userId,
+        _id: { $ne: this._id },
+      },
+      { isDefault: false }
+    );
+  }
+  next();
 });
 
-const AddressModel : Model<IAddress> = mongoose.model<IAddress>("Address", addressSchema);
+const AddressModel: Model<IAddress> = mongoose.model<IAddress>(
+  "Address",
+  addressSchema
+);
 
 export default AddressModel;

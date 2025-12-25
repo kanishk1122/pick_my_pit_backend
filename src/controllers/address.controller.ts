@@ -10,8 +10,10 @@ const addressValidation = Joi.object({
   street: Joi.string().required().min(5).max(200),
   city: Joi.string().required().min(2).max(100),
   state: Joi.string().required().min(2).max(100),
-  latitude: Joi.number().optional(),
-  longitude: Joi.number().optional(),
+  location: Joi.object({
+    type: Joi.string().valid("Point").required(),
+    coordinates: Joi.array().items(Joi.number()).length(2).required(),
+  }).required(),
   landmark: Joi.string().allow("").max(200),
   postalCode: Joi.string()
     .required()
@@ -39,18 +41,34 @@ export class AddressController {
     res: Response
   ): Promise<void> {
     try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 4; // Set limit to 4 for 2x2 grid
+      const skip = (page - 1) * limit;
 
+      const addresses = await AddressModel.find({ userId: req.user.id })
+        .sort({
+          isDefault: -1,
+          createdAt: -1,
+        })
+        .skip(skip)
+        .limit(limit);
 
-      const addresses = await AddressModel.find({ userId: req.user.id }).sort({
-        isDefault: -1,
-        createdAt: -1,
-      });
+      const total = await AddressModel.countDocuments({ userId: req.user.id });
 
-      res
-        .status(200)
-        .json(
-          ResponseHelper.success(addresses, "Addresses retrieved successfully")
-        );
+      res.status(200).json(
+        ResponseHelper.success(
+          {
+            addresses,
+            pagination: {
+              total,
+              page,
+              limit,
+              totalPages: Math.ceil(total / limit),
+            },
+          },
+          "Addresses retrieved successfully"
+        )
+      );
     } catch (error) {
       console.error("Get addresses error:", error);
       res.status(500).json(ResponseHelper.error("Internal server error"));
@@ -91,7 +109,6 @@ export class AddressController {
     res: Response
   ): Promise<void> {
     try {
-    
       console.log("Create address request body:", req.user);
 
       const addressData = {
@@ -126,7 +143,6 @@ export class AddressController {
   ): Promise<void> {
     try {
       const { id } = req.params;
-
 
       const { error, value } = addressUpdateValidation.validate(req.body);
       if (error) {
@@ -191,7 +207,6 @@ export class AddressController {
     try {
       const { id } = req.params;
 
-    
       // First, unset all default addresses for this user
       await AddressModel.updateMany(
         { userId: req.user.id },
@@ -227,7 +242,6 @@ export class AddressController {
     res: Response
   ): Promise<void> {
     try {
-    
       const address = await AddressModel.findOne({
         userId: req.user.id,
         isDefault: true,
