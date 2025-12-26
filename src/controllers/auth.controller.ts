@@ -248,7 +248,7 @@ export class AuthController {
       console.log({ token }, "t his token is gerated from admin model");
 
       res.cookie("adminToken", token, {
-        httpOnly: true,
+        httpOnly: false,
         secure: false, // Set to true in production with HTTPS
         sameSite: "lax",
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days

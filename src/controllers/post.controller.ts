@@ -9,6 +9,32 @@ import AddressModel from "../model/address.model";
 import Address from "ipaddr.js";
 
 export class PostController {
+  static async banPost(
+    req: AuthenticatedRequest,
+    res: Response
+  ): Promise<void> {
+    try {
+      const { id } = req.params;
+      // Find the post
+      const post = await PostModel.findById(id);
+      if (!post) {
+        res.status(404).json(ResponseHelper.error("Post not found"));
+        return;
+      }
+      // Update status to banned
+      const updatedPost = await PostModel.findByIdAndUpdate(
+        id,
+        { $set: { status: "banned" } },
+        { new: true }
+      );
+      res
+        .status(200)
+        .json(ResponseHelper.success(updatedPost, "Post banned successfully"));
+    } catch (error) {
+      console.error("Ban post error:", error);
+      res.status(500).json(ResponseHelper.error("Internal server error"));
+    }
+  }
   // Create new post
   static async createPost(
     req: AuthenticatedRequest,
@@ -92,7 +118,7 @@ export class PostController {
       const limit = parseInt(req.query.limit as string) || 10;
       const skip = (page - 1) * limit;
 
-      const filter: any = { status: "available" }; // Default to available posts
+      const filter: any = { status: "active" }; // Default to available posts
 
       // Filter by species
       if (req.query.species && req.query.species !== "") {
@@ -161,6 +187,75 @@ export class PostController {
         .json(ResponseHelper.success(post, "Post retrieved successfully"));
     } catch (error) {
       console.error("Get post error:", error);
+      res.status(500).json(ResponseHelper.error("Internal server error"));
+    }
+  }
+
+  static async getPostsForAdmin(req: Request, res: Response): Promise<void> {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const skip = (page - 1) * limit;
+      const status = req.query.status as string;
+
+      const filter: any = {};
+      if (status && status !== "all") {
+        filter.status = status;
+      }
+
+      console.log("Admin fetching posts with filter:", filter);
+
+      const posts = await PostModel.find(filter)
+        .populate("address")
+        .skip(skip)
+        .limit(limit)
+        .sort({ createdAt: -1 });
+
+      const total = await PostModel.countDocuments(filter);
+
+      res
+        .status(200)
+        .json(
+          ResponseHelper.paginated(
+            posts,
+            total,
+            page,
+            limit,
+            "Posts retrieved for admin successfully"
+          )
+        );
+    } catch (error) {
+      console.error("Get posts for admin error:", error);
+      res.status(500).json(ResponseHelper.error("Internal server error"));
+    }
+  }
+
+  // Get any post by ID for Admin
+  static async getPostForAdminbyId(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+
+      if (!Types.ObjectId.isValid(id)) {
+        res.status(400).json(ResponseHelper.error("Invalid post ID format."));
+        return;
+      }
+
+      const post = await PostModel.findById(id)
+        .populate("owner", "firstname lastname userpic phone email")
+        .populate("address");
+
+      if (!post) {
+        res.status(404).json(ResponseHelper.error("Post not found"));
+        return;
+      }
+
+      res
+        .status(200)
+        .json(
+          ResponseHelper.success(post, "Post retrieved for admin successfully")
+        );
+    } catch (error) {
+      console.error("Get post for admin error:", error);
       res.status(500).json(ResponseHelper.error("Internal server error"));
     }
   }
@@ -366,7 +461,6 @@ export class PostController {
       const sortBy = (req.query.sort as string) || "newest";
 
       const filter: any = { status: "active" }; // Default to available posts
-      console.log("Initial filter:", req.query);
 
       // Filter by status only if explicitly provided
       if (req.query.status && req.query.status !== "") {
@@ -399,19 +493,18 @@ export class PostController {
           $lte: maxPrice,
         };
       }
-      if(req.query.minPrice === "" && req.query.maxPrice === ""){
+      if (req.query.minPrice === "" && req.query.maxPrice === "") {
         delete filter.amount;
       }
-      if(Number(req.query.minPrice) > 0 ){
+      if (Number(req.query.minPrice) > 0) {
         const minPrice = parseFloat(req.query.minPrice as string) || 0;
-        filter.amount = { $gte: minPrice  };
+        filter.amount = { $gte: minPrice };
       }
-      if(req.query && Number(req.query.maxPrice) > 0 ){
+      if (req.query && Number(req.query.maxPrice) > 0) {
         const maxPrice =
           parseFloat(req.query.maxPrice as string) || Number.MAX_SAFE_INTEGER;
         filter.amount = { $lte: maxPrice };
       }
-
 
       // Search by title or description (note: using 'discription' to match DB)
       if (req.query.search && req.query.search !== "") {
@@ -438,7 +531,7 @@ export class PostController {
               $geoWithin: {
                 $centerSphere: [
                   [longitude, latitude], // Center: [User's Long, User's Lat]
-                  radiusInRadians, // Range: Distance in radians
+                  radiusInRadians,
                 ],
               },
             },
@@ -449,8 +542,6 @@ export class PostController {
               $in: addressIds.map((id: any) => new mongoose.Types.ObjectId(id)),
             };
           } else {
-            // Optimization: If no addresses found nearby, return empty immediately
-            // or ensure the filter returns nothing.
             filter.address = { $in: [] };
           }
         }
@@ -480,12 +571,10 @@ export class PostController {
           break;
       }
 
-      console.log("Filter query:", filter); // Debug log
-      console.log("Sort query:", sort); // Debug log
-
       const posts = await PostModel.find(filter)
-        .populate("owner", "firstname lastname userpic phone")
-        .populate("address")
+        .select(
+          "title discription category images slug amount type species breed"
+        )
         .skip(skip)
         .limit(limit)
         .sort(sort);
@@ -592,12 +681,6 @@ export class PostController {
   ): Promise<void> {
     try {
       const { id } = req.params;
-
-      // if (!req.user) {
-      //   res.status(401).json(ResponseHelper.error("User not authenticated"));
-      //   return;
-      // }
-
       // Find the post
       const post = await PostModel.findById(id);
       if (!post) {
@@ -605,22 +688,12 @@ export class PostController {
         return;
       }
 
-      // Check if user is admin or superadmin
-      if (!req.user || !["admin", "superadmin"].includes(req.user.role)) {
-        res
-          .status(403)
-          .json(ResponseHelper.error("Only admins can approve posts"));
-        return;
-      }
-
       // Update status to active
       const updatedPost = await PostModel.findByIdAndUpdate(
         id,
-        { $set: { status: "available" } },
+        { $set: { status: "active" } },
         { new: true }
-      )
-        .populate("owner", "firstname lastname userpic")
-        .populate("address");
+      );
 
       res
         .status(200)
@@ -640,11 +713,7 @@ export class PostController {
   ): Promise<void> {
     try {
       const { id } = req.params;
-
-      // if (!req.user) {
-      //   res.status(401).json(ResponseHelper.error("User not authenticated"));
-      //   return;
-      // }
+      const { reason } = req.body;
 
       // Find the post
       const post = await PostModel.findById(id);
@@ -653,18 +722,15 @@ export class PostController {
         return;
       }
 
-      // Check if user is admin or superadmin
-      if (!req.user || !["admin", "superadmin"].includes(req.user.role)) {
-        res
-          .status(403)
-          .json(ResponseHelper.error("Only admins can reject posts"));
-        return;
-      }
-
       // Update status to rejected
       const updatedPost = await PostModel.findByIdAndUpdate(
         id,
-        { $set: { status: "rejected" } },
+        {
+          $set: {
+            status: "rejected",
+            "meta.rejectmes": reason,
+          },
+        },
         { new: true }
       )
         .populate("owner", "firstname lastname userpic")

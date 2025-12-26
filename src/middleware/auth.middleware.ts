@@ -54,7 +54,7 @@ export const authMiddleware = async (
       process.env.JWT_SECRET || "your-secret-key"
     ) as JWTPayload;
 
-    console.log("Decoded JWT payload:", decoded);
+    // console.log("Decoded JWT payload:", decoded);
 
     // Verify user exists and is active
     const user = await UserModel.findById(decoded.userId);

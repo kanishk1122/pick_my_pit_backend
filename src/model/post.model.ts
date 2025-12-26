@@ -25,6 +25,7 @@ export interface IPost extends Document {
   createdAt: Date;
   updatedAt: Date;
   formattedAge: string;
+  meta: any;
 }
 
 export interface IPostMethods {
@@ -78,9 +79,10 @@ const PostSchema = new Schema<IPost, IPostModel, IPostMethods>(
     },
     status: {
       type: String,
-      enum: ["active", "sold", "adopted", "pending", "rejected"],
-      default: "active",
+      enum: ["active", "sold", "adopted", "pending", "rejected", "banned"],
+      default: "pending",
     },
+    meta: { type: Schema.Types.Mixed  },
   },
   {
     timestamps: true,
