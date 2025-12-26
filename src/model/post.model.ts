@@ -26,6 +26,7 @@ export interface IPost extends Document {
   updatedAt: Date;
   formattedAge: string;
   meta: any;
+  gender?: string;
 }
 
 export interface IPostMethods {
@@ -67,6 +68,7 @@ const PostSchema = new Schema<IPost, IPostModel, IPostMethods>(
     category: String,
     species: String,
     speciesSlug: { type: String, lowercase: true },
+    gender: { type: String, enum: ["male", "female"] },
     breedSlug: { type: String, lowercase: true },
     address: { type: Schema.Types.ObjectId, ref: "Address" },
     age: {

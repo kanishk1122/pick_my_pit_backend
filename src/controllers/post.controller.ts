@@ -206,6 +206,7 @@ export class PostController {
       console.log("Admin fetching posts with filter:", filter);
 
       const posts = await PostModel.find(filter)
+      .populate("owner", "firstname lastname userpic phone email")
         .populate("address")
         .skip(skip)
         .limit(limit)
