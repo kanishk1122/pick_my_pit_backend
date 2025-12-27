@@ -5,7 +5,9 @@ import postRoutes from "./post.routes";
 import addressRoutes from "./address.routes";
 import speciesRoutes from "./species.routes";
 import breedRoutes from "./breed.routes";
+import blogRoutes from "./blog.routes";
 import adminRoutes from "./admin.routes";
+
 
 export const registerRoutes = (app: Application): void => {
   // Health check
@@ -25,6 +27,7 @@ export const registerRoutes = (app: Application): void => {
   app.use("/api/species", speciesRoutes);
   app.use("/api/breeds", breedRoutes);
   app.use("/api/admin", adminRoutes);
+  app.use("/api/blogs", blogRoutes);
 
   // Root route
   // app.get("/", (req, res) => {
