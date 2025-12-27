@@ -8,7 +8,6 @@ import breedRoutes from "./breed.routes";
 import blogRoutes from "./blog.routes";
 import adminRoutes from "./admin.routes";
 
-
 export const registerRoutes = (app: Application): void => {
   // Health check
   app.get("/health", (req, res) => {

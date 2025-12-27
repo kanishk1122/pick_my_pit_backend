@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { AuthenticatedRequest } from "../middleware/auth.middleware";
 import BlogModel from "../model/blog.model";
 import { ResponseHelper } from "../helper/utils";
+import { CloudinaryHelper } from "../helper/cloudinary";
 import Joi from "joi";
 
 // Validation schema for creating a blog post
@@ -9,7 +10,7 @@ const blogCreateValidation = Joi.object({
   title: Joi.string().required().min(5).max(150),
   content: Joi.object().required(),
   category: Joi.string().required(),
-  coverImage: Joi.string().uri().allow(""),
+  coverImage: Joi.string().allow(""), // Allow base64 or URL or empty
   status: Joi.string().valid("draft", "published").default("draft"),
 });
 
@@ -18,7 +19,7 @@ const blogUpdateValidation = Joi.object({
   title: Joi.string().min(5).max(150),
   content: Joi.object(),
   category: Joi.string(),
-  coverImage: Joi.string().uri().allow(""),
+  coverImage: Joi.string().allow(""), // Allow base64 or URL or empty
   status: Joi.string().valid("draft", "published"),
 });
 
@@ -45,8 +46,29 @@ export class BlogController {
         return;
       }
 
+      // Convert base64 coverImage to Cloudinary URL if provided
+      let coverImageUrl = "";
+      if (value.coverImage && value.coverImage.startsWith("data:image")) {
+        try {
+          coverImageUrl = await CloudinaryHelper.uploadBase64Image(
+            value.coverImage,
+            "pickmypit/blogs"
+          );
+        } catch (uploadError: any) {
+          res
+            .status(400)
+            .json(
+              ResponseHelper.error("Image upload failed", uploadError.message)
+            );
+          return;
+        }
+      } else {
+        coverImageUrl = value.coverImage || "";
+      }
+
       const blogPost = new BlogModel({
         ...value,
+        coverImage: coverImageUrl,
         author: authorId,
       });
 
@@ -63,7 +85,7 @@ export class BlogController {
             "Blog post created successfully"
           )
         );
-    } catch (error) {
+    } catch (error: any) {
       if (error?.code === 11000) {
         // Duplicate key (likely title or slug)
         res
@@ -183,6 +205,23 @@ export class BlogController {
           .status(400)
           .json(ResponseHelper.error("Validation failed", error.details));
         return;
+      }
+
+      // Convert base64 coverImage to Cloudinary URL if provided and is base64
+      if (value.coverImage && value.coverImage.startsWith("data:image")) {
+        try {
+          value.coverImage = await CloudinaryHelper.uploadBase64Image(
+            value.coverImage,
+            "pickmypit/blogs"
+          );
+        } catch (uploadError: any) {
+          res
+            .status(400)
+            .json(
+              ResponseHelper.error("Image upload failed", uploadError.message)
+            );
+          return;
+        }
       }
 
       const updatedBlog = await BlogModel.findByIdAndUpdate(
