@@ -10,6 +10,8 @@ interface Config {
   jwtSecret: string;
   sessionSecret: string;
   cryptoKey: string;
+  kafkaBrokers: string[];
+  huggingFaceApiKey: string;
   cloudinary: {
     cloudName: string;
     apiKey: string;
@@ -34,6 +36,8 @@ export const config: Config = {
   jwtSecret: process.env.JWT_SECRET || "your_jwt_secret",
   sessionSecret: process.env.SESSION_SECRET || "your_session_secret",
   cryptoKey: process.env.CRYPTO_KEY || "your_crypto_key",
+  kafkaBrokers: (process.env.KAFKA_BROKERS || "127.0.0.1:9092").split(","),
+  huggingFaceApiKey: process.env.HUGGINGFACE_API_KEY || "",
   cloudinary: {
     cloudName: process.env.CLOUDINARY_CLOUD_NAME || "",
     apiKey: process.env.CLOUDINARY_API_KEY || "",

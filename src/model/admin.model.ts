@@ -1,5 +1,5 @@
 import mongoose, { Document, Model, Schema } from "mongoose";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { config } from "../config/index";
 
@@ -127,7 +127,6 @@ adminSchema.pre("save", async function (next) {
 });
 
 // Indexes
-adminSchema.index({ email: 1 });
 adminSchema.index({ status: 1 });
 adminSchema.index({ role: 1 });
 

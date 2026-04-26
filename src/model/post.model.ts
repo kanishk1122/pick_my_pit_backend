@@ -60,7 +60,7 @@ const PostSchema = new Schema<IPost, IPostModel, IPostMethods>(
     owner: { type: Schema.Types.ObjectId, ref: "User", required: true },
     images: { type: [Schema.Types.Mixed] as any[] },
     title: { type: String, required: true },
-    slug: { type: String, index: true },
+    slug: { type: String },
     discription: String,
     date: { type: Date, default: Date.now },
     amount: { type: Number, default: 0 },
@@ -84,7 +84,7 @@ const PostSchema = new Schema<IPost, IPostModel, IPostMethods>(
       enum: ["active", "sold", "adopted", "pending", "rejected", "banned"],
       default: "pending",
     },
-    meta: { type: Schema.Types.Mixed  },
+    meta: { type: Schema.Types.Mixed },
   },
   {
     timestamps: true,

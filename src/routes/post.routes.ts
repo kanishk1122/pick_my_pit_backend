@@ -23,7 +23,7 @@ router.get("/getpost-admin", verifyAdminToken, PostController.getPostsForAdmin);
 router.get("/:id", PostController.getPostById);
 router.get("/admin/:id", verifyAdminToken, PostController.getPostForAdminbyId);
 
-// Protected routes (middleware will be added later)
+// Protected routes
 router.put("/:id/approve", verifyAdminToken, PostController.approvePost);
 router.post("/:id/reject", verifyAdminToken, PostController.rejectPost);
 router.put("/:id/ban", verifyAdminToken, PostController.banPost);

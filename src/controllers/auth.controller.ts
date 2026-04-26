@@ -6,6 +6,7 @@ import { signup_auth, login_auth } from "../helper/validation";
 import { v4 as uuidv4 } from "uuid";
 import axios from "axios";
 import jwt from "jsonwebtoken";
+import { CryptoHelper } from "../helper/utils";
 
 export class AuthController {
   // Generate JWT token
@@ -43,6 +44,7 @@ export class AuthController {
   // User Registration
   static async register(req: Request, res: Response): Promise<void> {
     try {
+
       const { error, value } = signup_auth.validate(req.body);
       if (error) {
         res.status(400).json({
@@ -76,10 +78,11 @@ export class AuthController {
         referralCode: uuidv4().substring(0, 8),
         emailConfirmToken: uuidv4(),
         emailConfirmExpires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+        role: "user",
       });
 
       // Handle referral if provided
-      if (referralCode) {
+      if (referralCode !== "") {
         await AuthController.handleReferral(user, referralCode);
       }
 
@@ -415,7 +418,7 @@ export class AuthController {
         httpOnly: false,
         secure: false, // Set to true in production with HTTPS
         sameSite: "lax",
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days  
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
         path: "/",
       });
 

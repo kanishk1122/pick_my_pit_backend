@@ -4,6 +4,8 @@ import BlogModel from "../model/blog.model";
 import { ResponseHelper } from "../helper/utils";
 import { CloudinaryHelper } from "../helper/cloudinary";
 import Joi from "joi";
+import { kafkaService } from "../utils/kafka";
+import { redisService } from "../utils/redis";
 
 // Validation schema for creating a blog post
 const blogCreateValidation = Joi.object({
@@ -66,23 +68,21 @@ export class BlogController {
         coverImageUrl = value.coverImage || "";
       }
 
-      const blogPost = new BlogModel({
+      const blogData = {
         ...value,
         coverImage: coverImageUrl,
         author: authorId,
-      });
+      };
 
-      await blogPost.save();
-      const populatedPost = await BlogModel.findById(blogPost._id).populate(
-        "author",
-        "firstname lastname userpic"
-      );
+      // --- KAFKA PRODUCER ---
+      await kafkaService.send("blog-create", blogData);
+
       res
-        .status(201)
+        .status(202)
         .json(
           ResponseHelper.success(
-            populatedPost,
-            "Blog post created successfully"
+            null,
+            "Blog post creation initiated. It will be live shortly."
           )
         );
     } catch (error: any) {
@@ -150,6 +150,17 @@ export class BlogController {
   static async getBlogBySlug(req: Request, res: Response): Promise<void> {
     try {
       const { slug } = req.params;
+
+      // --- REDIS CACHE CHECK ---
+      const cachedBlog = await redisService.get(`blog:${slug}`);
+      if (cachedBlog) {
+        console.log("🚀 Serving from Redis cache:", slug);
+        res
+          .status(200)
+          .json(ResponseHelper.success(cachedBlog, "Blog post retrieved successfully (from cache)"));
+        return;
+      }
+
       const blog = await BlogModel.findOne({
         slug,
         status: "published",
@@ -159,6 +170,10 @@ export class BlogController {
         res.status(404).json(ResponseHelper.error("Blog post not found"));
         return;
       }
+
+      // Update cache
+      await redisService.set(`blog:${slug}`, blog, 3600);
+
       res
         .status(200)
         .json(ResponseHelper.success(blog, "Blog post retrieved successfully"));
@@ -173,6 +188,16 @@ export class BlogController {
   static async getBlogById(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
+
+      // --- REDIS CACHE CHECK ---
+      const cachedBlog = await redisService.get(`blog:id:${id}`);
+      if (cachedBlog) {
+        res
+          .status(200)
+          .json(ResponseHelper.success(cachedBlog, "Blog post retrieved successfully (from cache)"));
+        return;
+      }
+
       const blog = await BlogModel.findById(id).populate(
         "author",
         "firstname lastname userpic"
@@ -182,6 +207,10 @@ export class BlogController {
         res.status(404).json(ResponseHelper.error("Blog post not found"));
         return;
       }
+
+      // Update cache
+      await redisService.set(`blog:id:${id}`, blog, 3600);
+
       res
         .status(200)
         .json(ResponseHelper.success(blog, "Blog post retrieved successfully"));
@@ -234,6 +263,11 @@ export class BlogController {
         res.status(404).json(ResponseHelper.error("Blog post not found"));
         return;
       }
+
+      // Invalidate cache
+      await redisService.del(`blog:${updatedBlog.slug}`);
+      await redisService.del(`blog:id:${id}`);
+
       res
         .status(200)
         .json(
@@ -259,6 +293,11 @@ export class BlogController {
         res.status(404).json(ResponseHelper.error("Blog post not found"));
         return;
       }
+
+      // Invalidate cache
+      await redisService.del(`blog:${deletedBlog.slug}`);
+      await redisService.del(`blog:id:${id}`);
+
       res
         .status(200)
         .json(ResponseHelper.success(null, "Blog post deleted successfully"));

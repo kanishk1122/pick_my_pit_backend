@@ -5,54 +5,6 @@ declare module "*.json" {
   export default value;
 }
 
-// If axios types are still missing after installation
-declare module "axios" {
-  export interface AxiosResponse<T = any> {
-    data: T;
-    status: number;
-    statusText: string;
-    headers: any;
-    config: any;
-  }
-
-  export interface AxiosRequestConfig {
-    url?: string;
-    method?: string;
-    baseURL?: string;
-    headers?: any;
-    params?: any;
-    data?: any;
-    timeout?: number;
-  }
-
-  export function get<T = any>(
-    url: string,
-    config?: AxiosRequestConfig
-  ): Promise<AxiosResponse<T>>;
-  export function post<T = any>(
-    url: string,
-    data?: any,
-    config?: AxiosRequestConfig
-  ): Promise<AxiosResponse<T>>;
-  export function put<T = any>(
-    url: string,
-    data?: any,
-    config?: AxiosRequestConfig
-  ): Promise<AxiosResponse<T>>;
-
-  interface AxiosStatic {
-    get: typeof get;
-    post: typeof post;
-    put: typeof put;
-    delete<T = any>(
-      url: string,
-      config?: AxiosRequestConfig
-    ): Promise<AxiosResponse<T>>;
-  }
-
-  const axios: AxiosStatic;
-  export default axios;
-}
 
 // Additional type for process.env if needed
 declare namespace NodeJS {

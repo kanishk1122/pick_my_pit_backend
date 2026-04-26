@@ -6,7 +6,8 @@ import { ResponseHelper } from "../helper/utils";
 import { Types } from "mongoose";
 import mongoose from "mongoose";
 import AddressModel from "../model/address.model";
-import Address from "ipaddr.js";
+import { kafkaService } from "../utils/kafka";
+import { redisService } from "../utils/redis";
 
 export class PostController {
   static async banPost(
@@ -27,6 +28,13 @@ export class PostController {
         { $set: { status: "banned" } },
         { new: true }
       );
+
+      // Invalidate cache
+      if (updatedPost) {
+        await redisService.del(`post:${updatedPost.slug}`);
+        await redisService.del(`post:id:${id}`);
+      }
+
       res
         .status(200)
         .json(ResponseHelper.success(updatedPost, "Post banned successfully"));
@@ -49,39 +57,6 @@ export class PostController {
         return;
       }
 
-      console.log("Create post request body:", req.body);
-
-      // Custom validation for phone numbers and links
-      const phoneRegex =
-        /(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g;
-      const linkRegex = /(https?:\/\/[^\s]+)/g;
-
-      if (phoneRegex.test(value.title) || linkRegex.test(value.title)) {
-        res
-          .status(400)
-          .json(
-            ResponseHelper.error("Title cannot contain phone numbers or links.")
-          );
-        return;
-      }
-
-      phoneRegex.lastIndex = 0; // Reset regex state
-      linkRegex.lastIndex = 0; // Reset regex state
-
-      if (
-        phoneRegex.test(value.discription) ||
-        linkRegex.test(value.discription)
-      ) {
-        res
-          .status(400)
-          .json(
-            ResponseHelper.error(
-              "Description cannot contain phone numbers or links."
-            )
-          );
-        return;
-      }
-
       if (!req.user) {
         res.status(401).json(ResponseHelper.error("User not authenticated"));
         return;
@@ -93,17 +68,16 @@ export class PostController {
         address: value.addressId,
       };
 
-      const post = new PostModel(postData);
-      await post.save();
-
-      const populatedPost = await PostModel.findById(post._id)
-        .populate("owner", "firstname lastname userpic")
-        .populate("address");
+      // --- KAFKA PRODUCER ---
+      await kafkaService.send("post-create", postData);
 
       res
-        .status(201)
+        .status(202)
         .json(
-          ResponseHelper.success(populatedPost, "Post created successfully")
+          ResponseHelper.success(
+            null,
+            "Post creation initiated. It will be live shortly."
+          )
         );
     } catch (error) {
       console.error("Create post error:", error);
@@ -173,6 +147,15 @@ export class PostController {
         return;
       }
 
+      // --- REDIS CACHE CHECK ---
+      const cacheKey = `post:id:${id}`;
+      const cachedPost = await redisService.get(cacheKey);
+      if (cachedPost) {
+        console.log("🚀 Serving post from Redis:", id);
+        res.status(200).json(ResponseHelper.success(cachedPost, "Post retrieved successfully (from cache)"));
+        return;
+      }
+
       const post = await PostModel.findById(id)
         .populate("owner", "firstname lastname userpic phone email")
         .populate("address");
@@ -181,6 +164,9 @@ export class PostController {
         res.status(404).json(ResponseHelper.error("Post not found"));
         return;
       }
+
+      // Update Cache
+      await redisService.set(cacheKey, post, 3600);
 
       res
         .status(200)
@@ -206,7 +192,7 @@ export class PostController {
       console.log("Admin fetching posts with filter:", filter);
 
       const posts = await PostModel.find(filter)
-      .populate("owner", "firstname lastname userpic phone email")
+        .populate("owner", "firstname lastname userpic phone email")
         .populate("address")
         .skip(skip)
         .limit(limit)
@@ -266,12 +252,24 @@ export class PostController {
     try {
       const { slug } = req.params;
 
+      // --- REDIS CACHE CHECK ---
+      const cacheKey = `post:slug:${slug}`;
+      const cachedPost = await redisService.get(cacheKey);
+      if (cachedPost) {
+        console.log("🚀 Serving post from Redis (slug):", slug);
+        res.status(200).json(ResponseHelper.success(cachedPost, "Post retrieved successfully (from cache)"));
+        return;
+      }
+
       const post = await PostModel.findBySlug(slug);
 
       if (!post) {
         res.status(404).json(ResponseHelper.error("Post not found"));
         return;
       }
+
+      // Update Cache
+      await redisService.set(cacheKey, post, 3600);
 
       res
         .status(200)
@@ -295,41 +293,6 @@ export class PostController {
         res
           .status(400)
           .json(ResponseHelper.error("Validation failed", error.details));
-        return;
-      }
-
-      // Custom validation for phone numbers and links
-      const phoneRegex =
-        /(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g;
-      const linkRegex = /(https?:\/\/[^\s]+)/g;
-
-      if (
-        value.title &&
-        (phoneRegex.test(value.title) || linkRegex.test(value.title))
-      ) {
-        res
-          .status(400)
-          .json(
-            ResponseHelper.error("Title cannot contain phone numbers or links.")
-          );
-        return;
-      }
-
-      phoneRegex.lastIndex = 0; // Reset regex state
-      linkRegex.lastIndex = 0; // Reset regex state
-
-      if (
-        value.discription &&
-        (phoneRegex.test(value.discription) ||
-          linkRegex.test(value.discription))
-      ) {
-        res
-          .status(400)
-          .json(
-            ResponseHelper.error(
-              "Description cannot contain phone numbers or links."
-            )
-          );
         return;
       }
 
@@ -362,6 +325,12 @@ export class PostController {
       )
         .populate("owner", "firstname lastname userpic")
         .populate("address");
+
+      if (updatedPost) {
+        // Cache Invalidation
+        await redisService.del(`post:slug:${updatedPost.slug}`);
+        await redisService.del(`post:id:${id}`);
+      }
 
       res
         .status(200)
@@ -402,7 +371,13 @@ export class PostController {
         return;
       }
 
-      await PostModel.findByIdAndDelete(id);
+      const deletedPost = await PostModel.findByIdAndDelete(id);
+
+      if (deletedPost) {
+        // Cache Invalidation
+        await redisService.del(`post:slug:${deletedPost.slug}`);
+        await redisService.del(`post:id:${id}`);
+      }
 
       res
         .status(200)
@@ -696,6 +671,12 @@ export class PostController {
         { new: true }
       );
 
+      // Invalidate cache
+      if (updatedPost) {
+        await redisService.del(`post:slug:${updatedPost.slug}`);
+        await redisService.del(`post:id:${id}`);
+      }
+
       res
         .status(200)
         .json(
@@ -736,6 +717,12 @@ export class PostController {
       )
         .populate("owner", "firstname lastname userpic")
         .populate("address");
+
+      // Invalidate cache
+      if (updatedPost) {
+        await redisService.del(`post:slug:${updatedPost.slug}`);
+        await redisService.del(`post:id:${id}`);
+      }
 
       res
         .status(200)

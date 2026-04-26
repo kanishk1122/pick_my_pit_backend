@@ -72,7 +72,6 @@ speciesSchema.statics.incrementPopularity = function (speciesId: string) {
 };
 
 // Indexes
-speciesSchema.index({ name: 1 });
 speciesSchema.index({ active: 1 });
 speciesSchema.index({ popularity: -1 });
 

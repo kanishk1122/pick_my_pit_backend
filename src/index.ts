@@ -9,7 +9,8 @@ import session from "express-session";
 import { config } from "./config/index";
 import { database } from "./config/database";
 import { registerRoutes } from "./routes/index";
-// import { registerSocketEvents } from "./sockets/index";
+import { registerSocketEvents } from "./sockets/index";
+import { socketService } from "./utils/socket";
 
 const app = express();
 const server = createServer(app);
@@ -111,12 +112,19 @@ app.use(
 // });
 
 // Connect to database
-database.connect().catch(console.error);
+database.connect().then(() => {
+  // Initialize Sockets
+  const io = socketService.init(server);
+  registerSocketEvents(io);
 
-// Register routes and socket events
+  // Start background services
+  import("./services/blog.consumer").then(m => m.startBlogConsumer());
+  import("./services/post.consumer").then(m => m.startPostConsumer());
+  import("./utils/redis").then(m => m.redisService.connect());
+}).catch(console.error);
 
+// Register routes
 registerRoutes(app);
-// registerSocketEvents(io);
 
 // Global error handler
 app.use(
