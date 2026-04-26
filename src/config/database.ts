@@ -22,6 +22,7 @@ class Database {
 
     try {
       await mongoose.connect(config.mongoUrl);
+      console.log("Connected to MongoDB");
       this.isConnected = true;
       console.log(`MongoDB Connected: ${config.mongoUrl.split("@").pop()}`);
     } catch (error) {

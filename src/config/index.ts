@@ -1,6 +1,10 @@
 import dotenv from "dotenv";
+import path from "path";
 
-dotenv.config();
+// Explicitly define the path relative to this file to ensure it always finds .env
+// regardless of where the script is executed from
+const envPath = path.resolve(__dirname, "../../.env");
+dotenv.config({ path: envPath });
 
 interface Config {
   port: number;
@@ -32,7 +36,7 @@ export const config: Config = {
   mongoUrl:
     process.env.DATABASE_URL ||
     process.env.MONGO_URI ||
-    "mongodb://localhost:27017/pickMyPit",
+    "mongodb://127.0.0.1:27017/pickMyPit",
   jwtSecret: process.env.JWT_SECRET || "your_jwt_secret",
   sessionSecret: process.env.SESSION_SECRET || "your_session_secret",
   cryptoKey: process.env.CRYPTO_KEY || "your_crypto_key",
