@@ -7,15 +7,32 @@ class RedisService {
     constructor() {
         this.client = createClient({
             url: config.redisUrl,
+            socket: {
+                reconnectStrategy: (retries) => {
+                    if (retries > 3) {
+                        console.log("⚠️ Redis Service: Max retries reached. Disabling Redis caching.");
+                        return false;
+                    }
+                    return 1000;
+                }
+            }
         });
 
-        this.client.on("error", (err) => console.error("Redis Client Error", err));
+        this.client.on("error", (err) => {
+            if (err.code !== 'ECONNREFUSED') {
+                console.error("Redis Client Error", err);
+            }
+        });
     }
 
     async connect() {
-        if (!this.client.isOpen) {
-            await this.client.connect();
-            console.log("✅ Redis Connected");
+        try {
+            if (!this.client.isOpen) {
+                await this.client.connect();
+                console.log("✅ Redis Connected");
+            }
+        } catch (err) {
+            console.log("❌ Redis Service: Connection failed. Caching will be disabled.");
         }
     }
 

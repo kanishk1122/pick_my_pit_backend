@@ -6,8 +6,9 @@ import { ResponseHelper } from "../helper/utils";
 import { Types } from "mongoose";
 import mongoose from "mongoose";
 import AddressModel from "../model/address.model";
-import { kafkaService } from "../utils/kafka";
 import { redisService } from "../utils/redis";
+import { ImageSafetyService } from "../utils/imageSafety";
+import { socketService } from "../utils/socket";
 
 export class PostController {
   static async banPost(
@@ -16,34 +17,29 @@ export class PostController {
   ): Promise<void> {
     try {
       const { id } = req.params;
-      // Find the post
       const post = await PostModel.findById(id);
       if (!post) {
         res.status(404).json(ResponseHelper.error("Post not found"));
         return;
       }
-      // Update status to banned
       const updatedPost = await PostModel.findByIdAndUpdate(
         id,
         { $set: { status: "banned" } },
         { new: true }
       );
 
-      // Invalidate cache
       if (updatedPost) {
         await redisService.del(`post:${updatedPost.slug}`);
         await redisService.del(`post:id:${id}`);
       }
 
-      res
-        .status(200)
-        .json(ResponseHelper.success(updatedPost, "Post banned successfully"));
+      res.status(200).json(ResponseHelper.success(updatedPost, "Post banned successfully"));
     } catch (error) {
       console.error("Ban post error:", error);
       res.status(500).json(ResponseHelper.error("Internal server error"));
     }
   }
-  // Create new post
+
   static async createPost(
     req: AuthenticatedRequest,
     res: Response
@@ -51,9 +47,7 @@ export class PostController {
     try {
       const { error, value } = post_validation.validate(req.body);
       if (error) {
-        res
-          .status(400)
-          .json(ResponseHelper.error("Validation failed", error.details));
+        res.status(400).json(ResponseHelper.error("Validation failed", error.details));
         return;
       }
 
@@ -68,17 +62,59 @@ export class PostController {
         address: value.addressId,
       };
 
-      // --- KAFKA PRODUCER ---
-      await kafkaService.send("post-create", postData);
+      // Background Processing (Replaced Kafka)
+      (async () => {
+        try {
+            const spamWords = ["spam", "fake", "scam", "test"];
+            const containsSpam = spamWords.some(word =>
+                postData.title.toLowerCase().includes(word) ||
+                postData.discription.toLowerCase().includes(word)
+            );
 
-      res
-        .status(202)
-        .json(
-          ResponseHelper.success(
-            null,
-            "Post creation initiated. It will be live shortly."
-          )
-        );
+            if (containsSpam) {
+                console.warn("🚫 Post REJECTED: Spam detected in title or description", postData.title);
+                const rejectedPost = new PostModel({
+                    ...postData,
+                    status: "rejected",
+                    meta: { rejectReason: "Automated spam detection" }
+                });
+                await rejectedPost.save();
+                return;
+            }
+
+            if (postData.images && Array.isArray(postData.images)) {
+                for (const imageUrl of postData.images) {
+                    const isSafe = await ImageSafetyService.isImageSafe(imageUrl);
+                    if (!isSafe) {
+                        console.warn("🚫 Post REJECTED: Unsafe image detected", imageUrl);
+                        const rejectedPost = new PostModel({
+                            ...postData,
+                            status: "rejected",
+                            meta: { rejectReason: "Automated NSFW detection" }
+                        });
+                        await rejectedPost.save();
+                        return;
+                    }
+                }
+            }
+
+            const post = new PostModel(postData);
+            await post.save();
+            console.log("💾 Post saved to DB:", post._id);
+
+            const cacheKey = `post:slug:${post.slug}`;
+            await redisService.set(cacheKey, post, 3600);
+            await redisService.set(`post:id:${post._id}`, post, 3600);
+
+            console.log("🚀 Post cached in Redis:", cacheKey);
+
+            socketService.emit("post_created", post);
+        } catch (error) {
+            console.error("❌ Error processing post creation:", error);
+        }
+      })();
+
+      res.status(202).json(ResponseHelper.success(null, "Post creation initiated. It will be live shortly."));
     } catch (error) {
       console.error("Create post error:", error);
       res.status(500).json(ResponseHelper.error("Internal server error"));
@@ -482,33 +518,50 @@ export class PostController {
         filter.amount = { $lte: maxPrice };
       }
 
-      // Search by title or description (note: using 'discription' to match DB)
+      // Search by title, description, or city/state
       if (req.query.search && req.query.search !== "") {
+        const searchRegex = { $regex: req.query.search, $options: "i" };
+        
+        // 1. Find addresses matching city or state
+        const matchingAddressIds = await AddressModel.find({
+          $or: [
+            { city: searchRegex },
+            { state: searchRegex }
+          ]
+        }).distinct("_id");
+
         filter.$or = [
-          { title: { $regex: req.query.search, $options: "i" } },
-          { discription: { $regex: req.query.search, $options: "i" } },
+          { title: searchRegex },
+          { discription: searchRegex },
+          { address: { $in: matchingAddressIds } }
         ];
       }
 
-      // Location-based filtering
+      // Direct City/State Filtering
+      if (req.query.city && req.query.city !== "") {
+        const cityAddressIds = await AddressModel.find({
+          city: { $regex: new RegExp(`^${req.query.city}$`, "i") }
+        }).distinct("_id");
+        filter.address = { $in: cityAddressIds };
+      }
+
+      // Location-based filtering (Radius search)
+      let isDistanceSearch = false;
       if (req.query.nearMe === "true") {
         const longitude = parseFloat(req.query.longitude as string);
         const latitude = parseFloat(req.query.latitude as string);
-        const maxDistanceKm = parseFloat(req.query.maxDistance as string); // Distance in KM
+        const maxDistanceKm = parseFloat(req.query.maxDistance as string) || 50; // Default 50km
 
-        if (!isNaN(longitude) && !isNaN(latitude) && !isNaN(maxDistanceKm)) {
-          // 1. Calculate the radius in radians (required for $centerSphere)
-          // Earth radius is approx 6378.1 km
+        if (!isNaN(longitude) && !isNaN(latitude)) {
+          isDistanceSearch = true;
+          // 1. Calculate the radius in radians (Earth radius ≈ 6378.1 km)
           const radiusInRadians = maxDistanceKm / 6378.1;
 
-          // 2. Find addresses within this range using $geoWithin
+          // 2. Find addresses within range
           const addressIds = await AddressModel.find({
             location: {
               $geoWithin: {
-                $centerSphere: [
-                  [longitude, latitude], // Center: [User's Long, User's Lat]
-                  radiusInRadians,
-                ],
+                $centerSphere: [[longitude, latitude], radiusInRadians],
               },
             },
           }).distinct("_id");
@@ -548,9 +601,8 @@ export class PostController {
       }
 
       const posts = await PostModel.find(filter)
-        .select(
-          "title discription category images slug amount type species breed"
-        )
+        .populate("address")
+        .populate("owner", "firstname lastname userpic")
         .skip(skip)
         .limit(limit)
         .sort(sort);

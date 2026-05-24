@@ -7,7 +7,17 @@ export const registerSocketEvents = (io: Server): void => {
     // Join user to their personal room
     socket.on("join", (userId: string) => {
       socket.join(`user:${userId}`);
-      console.log(`User ${userId} joined their room`);
+      console.log(`👤 User ${userId} joined their personal room`);
+    });
+
+    socket.on("join_chat", (chatId: string) => {
+      socket.join(`chat:${chatId}`);
+      console.log(`💬 Socket joined chat room: ${chatId}`);
+    });
+
+    socket.on("leave_chat", (chatId: string) => {
+      socket.leave(`chat:${chatId}`);
+      console.log(`👋 Socket left chat room: ${chatId}`);
     });
 
     // Handle chat messages
@@ -55,8 +65,8 @@ export const registerSocketEvents = (io: Server): void => {
     // Handle typing indicators for chat
     socket.on(
       "typing",
-      (data: { from: string; to: string; isTyping: boolean }) => {
-        socket.to(`user:${data.to}`).emit("typing", {
+      (data: { from: string; to: string; isTyping: boolean; chatId: string }) => {
+        socket.to(`chat:${data.chatId}`).emit("typing", {
           from: data.from,
           isTyping: data.isTyping,
         });
@@ -77,5 +87,19 @@ export const registerSocketEvents = (io: Server): void => {
         }
       }
     );
+
+    // Handle message read receipts
+    socket.on("message_read", (data: { messageId: string; chatId: string; sender: string }) => {
+      socket.to(`chat:${data.chatId}`).emit("message_read_update", {
+        messageId: data.messageId,
+        readAt: new Date(),
+      });
+    });
+
+    // Handle new message events
+    socket.on("send_message", (data: { from: string; to: string; content: string; chatId: string; postId?: string }) => {
+      // Emit to the chat room and the recipient's personal room
+      io.to(`chat:${data.chatId}`).to(`user:${data.to}`).emit("receive_message", data);
+    });
   });
 };

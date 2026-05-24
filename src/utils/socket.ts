@@ -7,19 +7,21 @@ class SocketService {
 
     init(server: HttpServer) {
         this.io = new Server(server, {
+            transports: ["websocket"], // Force websocket for zero-latency connection
+            pingInterval: 10000,
+            pingTimeout: 5000,
+            connectTimeout: 10000,
             cors: {
-                origin: [
-                    "http://localhost:3000",
-                    "http://localhost:5173",
-                    "http://localhost:3001",
-                    config.adminUiUrl
-                ],
+                origin: (origin, callback) => {
+                    // Allow all origins in development
+                    callback(null, true);
+                },
                 methods: ["GET", "POST"],
                 credentials: true,
             },
         });
 
-        console.log("📡 Socket.IO initialized");
+        console.log("📡 Socket.IO initialized (WebSockets only)");
         return this.io;
     }
 

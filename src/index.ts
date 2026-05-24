@@ -97,12 +97,47 @@ app.use(
 // });
 
 // Redis setup for Socket.IO adapter
-// const pubClient = createClient({ url: config.redisUrl });
-// const subClient = pubClient.duplicate();
+import { createAdapter } from "@socket.io/redis-adapter";
+import { createClient } from "redis";
 
-// Promise.all([pubClient.connect(), subClient.connect()]).catch(console.error);
+const setupRedisAdapter = async () => {
+  try {
+    const redisUrl = config.redisUrl || "redis://localhost:6380";
+    console.log(`🔌 Attempting to connect to Redis at ${redisUrl}...`);
+    
+    const pubClient = createClient({ 
+      url: redisUrl,
+      socket: {
+        reconnectStrategy: (retries) => {
+          if (retries > 3) {
+            console.log("⚠️ Redis connection failed after 3 attempts. Falling back to Memory Adapter.");
+            return false; // Stop retrying
+          }
+          return 500; // retry every 500ms
+        }
+      }
+    });
+    
+    const subClient = pubClient.duplicate();
 
-// io.adapter(createAdapter(pubClient, subClient));
+    pubClient.on('error', (err) => {
+      if (err.code !== 'ECONNREFUSED') console.log('Redis Pub Client Error:', err.message);
+    });
+    subClient.on('error', (err) => {
+      if (err.code !== 'ECONNREFUSED') console.log('Redis Sub Client Error:', err.message);
+    });
+
+    await Promise.all([pubClient.connect(), subClient.connect()]);
+    
+    const io = socketService.getIO();
+    io.adapter(createAdapter(pubClient, subClient));
+    console.log("🔄 Redis Socket.IO adapter connected successfully");
+  } catch (err: any) {
+    console.log("❌ Redis connection failed. Messaging will work but will be limited to this instance.");
+  }
+};
+
+setupRedisAdapter();
 
 // Socket.IO Admin UI
 // instrument(io, {
@@ -118,8 +153,6 @@ database.connect().then(() => {
   registerSocketEvents(io);
 
   // Start background services
-  import("./services/blog.consumer").then(m => m.startBlogConsumer());
-  import("./services/post.consumer").then(m => m.startPostConsumer());
   import("./utils/redis").then(m => m.redisService.connect());
 }).catch(console.error);
 

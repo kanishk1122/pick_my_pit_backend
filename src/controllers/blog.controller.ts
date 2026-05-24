@@ -4,15 +4,16 @@ import BlogModel from "../model/blog.model";
 import { ResponseHelper } from "../helper/utils";
 import { CloudinaryHelper } from "../helper/cloudinary";
 import Joi from "joi";
-import { kafkaService } from "../utils/kafka";
 import { redisService } from "../utils/redis";
+import { ImageSafetyService } from "../utils/imageSafety";
+import { socketService } from "../utils/socket";
 
 // Validation schema for creating a blog post
 const blogCreateValidation = Joi.object({
   title: Joi.string().required().min(5).max(150),
   content: Joi.object().required(),
   category: Joi.string().required(),
-  coverImage: Joi.string().allow(""), // Allow base64 or URL or empty
+  coverImage: Joi.string().allow(""),
   status: Joi.string().valid("draft", "published").default("draft"),
 });
 
@@ -21,12 +22,11 @@ const blogUpdateValidation = Joi.object({
   title: Joi.string().min(5).max(150),
   content: Joi.object(),
   category: Joi.string(),
-  coverImage: Joi.string().allow(""), // Allow base64 or URL or empty
+  coverImage: Joi.string().allow(""),
   status: Joi.string().valid("draft", "published"),
 });
 
 export class BlogController {
-  // --- CREATE BLOG ---
   static async createBlog(
     req: AuthenticatedRequest,
     res: Response
@@ -34,34 +34,21 @@ export class BlogController {
     try {
       const { error, value } = blogCreateValidation.validate(req.body);
       if (error) {
-        res
-          .status(400)
-          .json(ResponseHelper.error("Validation failed", error.details));
+        res.status(400).json(ResponseHelper.error("Validation failed", error.details));
         return;
       }
-      // Prefer admin id (admin routes), fallback to user id if present
       const authorId = req.admin?.id || req.user?.id;
       if (!authorId) {
-        res
-          .status(401)
-          .json(ResponseHelper.error("Unauthorized: missing user context"));
+        res.status(401).json(ResponseHelper.error("Unauthorized: missing user context"));
         return;
       }
 
-      // Convert base64 coverImage to Cloudinary URL if provided
       let coverImageUrl = "";
       if (value.coverImage && value.coverImage.startsWith("data:image")) {
         try {
-          coverImageUrl = await CloudinaryHelper.uploadBase64Image(
-            value.coverImage,
-            "pickmypit/blogs"
-          );
+          coverImageUrl = await CloudinaryHelper.uploadBase64Image(value.coverImage, "pickmypit/blogs");
         } catch (uploadError: any) {
-          res
-            .status(400)
-            .json(
-              ResponseHelper.error("Image upload failed", uploadError.message)
-            );
+          res.status(400).json(ResponseHelper.error("Image upload failed", uploadError.message));
           return;
         }
       } else {
@@ -74,33 +61,46 @@ export class BlogController {
         author: authorId,
       };
 
-      // --- KAFKA PRODUCER ---
-      await kafkaService.send("blog-create", blogData);
+      // Background Processing (Replaced Kafka)
+      (async () => {
+        try {
+            const spamWords = ["spam", "fake", "scam"];
+            if (spamWords.some(word => blogData.title.toLowerCase().includes(word))) {
+                console.warn("🚫 Blog REJECTED: Spam detected in title", blogData.title);
+                return;
+            }
 
-      res
-        .status(202)
-        .json(
-          ResponseHelper.success(
-            null,
-            "Blog post creation initiated. It will be live shortly."
-          )
-        );
+            if (blogData.coverImage) {
+                const isSafe = await ImageSafetyService.isImageSafe(blogData.coverImage);
+                if (!isSafe) {
+                    console.warn("🚫 Blog REJECTED: Unsafe cover image detected", blogData.coverImage);
+                    return;
+                }
+            }
+
+            const blogPost = new BlogModel(blogData);
+            await blogPost.save();
+            console.log("💾 Blog saved to DB:", blogPost._id);
+
+            const cacheKey = `blog:${blogPost.slug}`;
+            await redisService.set(cacheKey, blogPost, 3600);
+            await redisService.set(`blog:id:${blogPost._id}`, blogPost, 3600);
+
+            console.log("🚀 Blog cached in Redis:", cacheKey);
+
+            socketService.emit("blog_created", blogPost);
+        } catch (error: any) {
+            console.error("❌ Error processing blog creation:", error.message);
+        }
+      })();
+
+      res.status(202).json(ResponseHelper.success(null, "Blog post creation initiated. It will be live shortly."));
     } catch (error: any) {
       if (error?.code === 11000) {
-        // Duplicate key (likely title or slug)
-        res
-          .status(409)
-          .json(
-            ResponseHelper.error(
-              "A blog with this title already exists",
-              error?.keyValue
-            )
-          );
+        res.status(409).json(ResponseHelper.error("A blog with this title already exists", error?.keyValue));
         return;
       }
-      res
-        .status(500)
-        .json(ResponseHelper.error("Internal server error", error));
+      res.status(500).json(ResponseHelper.error("Internal server error", error));
     }
   }
 
