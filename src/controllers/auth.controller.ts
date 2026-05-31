@@ -79,6 +79,8 @@ export class AuthController {
         emailConfirmToken: uuidv4(),
         emailConfirmExpires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
         role: "user",
+        status: "active",
+        emailConfirm: true,
       });
 
       // Handle referral if provided

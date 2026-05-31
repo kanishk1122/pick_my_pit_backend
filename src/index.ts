@@ -11,6 +11,13 @@ import { database } from "./config/database";
 import { registerRoutes } from "./routes/index";
 import { registerSocketEvents } from "./sockets/index";
 import { socketService } from "./utils/socket";
+import { startPostWorker } from "./workers/postWorker";
+
+if (process.env.NODE_ENV === "production") {
+  console.log = () => {};
+  console.info = () => {};
+  console.debug = () => {};
+}
 
 const app = express();
 const server = createServer(app);
@@ -154,6 +161,9 @@ database.connect().then(() => {
 
   // Start background services
   import("./utils/redis").then(m => m.redisService.connect());
+
+  // Start BullMQ Background Post Processing Worker
+  startPostWorker();
 }).catch(console.error);
 
 // Register routes

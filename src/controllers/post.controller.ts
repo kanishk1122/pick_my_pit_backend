@@ -9,6 +9,7 @@ import AddressModel from "../model/address.model";
 import { redisService } from "../utils/redis";
 import { ImageSafetyService } from "../utils/imageSafety";
 import { socketService } from "../utils/socket";
+import { postQueue } from "../queues/postQueue";
 
 export class PostController {
   static async banPost(
@@ -62,57 +63,8 @@ export class PostController {
         address: value.addressId,
       };
 
-      // Background Processing (Replaced Kafka)
-      (async () => {
-        try {
-            const spamWords = ["spam", "fake", "scam", "test"];
-            const containsSpam = spamWords.some(word =>
-                postData.title.toLowerCase().includes(word) ||
-                postData.discription.toLowerCase().includes(word)
-            );
-
-            if (containsSpam) {
-                console.warn("🚫 Post REJECTED: Spam detected in title or description", postData.title);
-                const rejectedPost = new PostModel({
-                    ...postData,
-                    status: "rejected",
-                    meta: { rejectReason: "Automated spam detection" }
-                });
-                await rejectedPost.save();
-                return;
-            }
-
-            if (postData.images && Array.isArray(postData.images)) {
-                for (const imageUrl of postData.images) {
-                    const isSafe = await ImageSafetyService.isImageSafe(imageUrl);
-                    if (!isSafe) {
-                        console.warn("🚫 Post REJECTED: Unsafe image detected", imageUrl);
-                        const rejectedPost = new PostModel({
-                            ...postData,
-                            status: "rejected",
-                            meta: { rejectReason: "Automated NSFW detection" }
-                        });
-                        await rejectedPost.save();
-                        return;
-                    }
-                }
-            }
-
-            const post = new PostModel(postData);
-            await post.save();
-            console.log("💾 Post saved to DB:", post._id);
-
-            const cacheKey = `post:slug:${post.slug}`;
-            await redisService.set(cacheKey, post, 3600);
-            await redisService.set(`post:id:${post._id}`, post, 3600);
-
-            console.log("🚀 Post cached in Redis:", cacheKey);
-
-            socketService.emit("post_created", post);
-        } catch (error) {
-            console.error("❌ Error processing post creation:", error);
-        }
-      })();
+      // Queue the background processing job using BullMQ
+      await postQueue.add("create-post", { postData });
 
       res.status(202).json(ResponseHelper.success(null, "Post creation initiated. It will be live shortly."));
     } catch (error) {
@@ -150,7 +102,8 @@ export class PostController {
         .populate("address")
         .skip(skip)
         .limit(limit)
-        .sort({ createdAt: -1 });
+        .sort({ createdAt: -1 })
+        .lean();
 
       console.log("[post controller] post :", posts); // Debug log
 
@@ -605,7 +558,8 @@ export class PostController {
         .populate("owner", "firstname lastname userpic")
         .skip(skip)
         .limit(limit)
-        .sort(sort);
+        .sort(sort)
+        .lean();
 
       const total = await PostModel.countDocuments(filter);
 
