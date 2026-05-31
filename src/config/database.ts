@@ -21,7 +21,10 @@ class Database {
     }
 
     try {
-      await mongoose.connect(config.mongoUrl);
+      await mongoose.connect(config.mongoUrl, {
+        maxPoolSize: 100,
+        minPoolSize: 10,
+      });
       console.log("Connected to MongoDB");
       this.isConnected = true;
     } catch (error) {

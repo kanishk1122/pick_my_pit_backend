@@ -11,7 +11,9 @@ export default async function (job: SandboxedJob) {
   // 1. Ensure DB Connection in child process
   if (mongoose.connection.readyState === 0) {
     try {
-      await mongoose.connect(config.mongoUrl);
+      await mongoose.connect(config.mongoUrl, {
+        maxPoolSize: 50,
+      });
     } catch (err: any) {
       console.error("Worker DB connection error:", err.message);
       throw err;

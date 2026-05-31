@@ -425,6 +425,14 @@ export class PostController {
       const skip = (page - 1) * limit;
       const sortBy = (req.query.sort as string) || "newest";
 
+      // --- REDIS CACHE CHECK ---
+      const cacheKey = `posts:filter:${JSON.stringify(req.query)}`;
+      const cachedResponse = await redisService.get(cacheKey);
+      if (cachedResponse) {
+        res.status(200).json(cachedResponse);
+        return;
+      }
+
       const filter: any = { status: "active" }; // Default to available posts
 
       // Filter by status only if explicitly provided
@@ -563,17 +571,18 @@ export class PostController {
 
       const total = await PostModel.countDocuments(filter);
 
-      res
-        .status(200)
-        .json(
-          ResponseHelper.paginated(
-            posts,
-            total,
-            page,
-            limit,
-            "Filtered posts retrieved successfully"
-          )
-        );
+      const responseData = ResponseHelper.paginated(
+        posts,
+        total,
+        page,
+        limit,
+        "Filtered posts retrieved successfully"
+      );
+
+      // Update cache
+      await redisService.set(cacheKey, responseData, 10);
+
+      res.status(200).json(responseData);
     } catch (error) {
       console.error("Filter posts error:", error);
       res.status(500).json(ResponseHelper.error("Internal server error"));
