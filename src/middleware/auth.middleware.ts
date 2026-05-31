@@ -1,8 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { config } from "../config/index";
-import UserModel from "../model/user.model";
-import AdminModel from "../model/admin.model";
+import { prisma } from "../config/database";
 
 export interface AuthenticatedRequest extends Request {
   user?: {
@@ -56,8 +55,18 @@ export const authMiddleware = async (
 
     // console.log("Decoded JWT payload:", decoded);
 
+    if (!decoded.userId) {
+      res.status(401).json({
+        success: false,
+        message: "Access denied. Invalid token format.",
+      });
+      return;
+    }
+
     // Verify user exists and is active
-    const user = await UserModel.findById(decoded.userId);
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId }
+    });
     if (!user || user.status !== "active") {
       console.log("User not found or inactive for ID:", decoded.userId);
       res.status(401).json({
@@ -68,7 +77,7 @@ export const authMiddleware = async (
     }
 
     req.user = {
-      id: user._id.toString(),
+      id: user.id,
       email: user.email,
       role: user.role,
       firstname: user.firstname,
@@ -112,8 +121,17 @@ export const verifyUserToken = async (
       process.env.JWT_SECRET || "your-secret-key"
     ) as JWTPayload;
 
+    if (!decoded.userId) {
+      return res.status(401).json({
+        success: false,
+        msg: "Access denied. Invalid token format.",
+      });
+    }
+
     // Verify user exists and is active
-    const user = await UserModel.findById(decoded.userId);
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId }
+    });
     if (!user || user.status !== "active") {
       return res.status(401).json({
         success: false,
@@ -122,7 +140,7 @@ export const verifyUserToken = async (
     }
 
     req.user = {
-      id: user._id.toString(),
+      id: user.id,
       email: user.email,
       role: user.role,
       firstname: user.firstname,
@@ -182,7 +200,7 @@ export const verifyAdminToken = async (
     }
 
     req.admin = {
-      id: decoded.id, // Use 'id' from admin token payload
+      id: decoded.id || "", // Use 'id' from admin token payload
       email: decoded.email,
       role: decoded.role,
       firstname: decoded.firstname,
@@ -226,7 +244,9 @@ export const validateAdminExists = async (
 
     // Try Admin model first
     try {
-      const admin = await AdminModel.findById(req.admin.id);
+      const admin = await prisma.admin.findUnique({
+        where: { id: req.admin.id }
+      });
       if (admin && admin.status === "active") {
         adminExists = true;
         req.adminUser = true;
@@ -238,10 +258,12 @@ export const validateAdminExists = async (
     // Fallback to User model with admin role
     if (!adminExists) {
       try {
-        const admin = await UserModel.findOne({
-          _id: req.admin.id,
-          role: { $in: ["admin", "superadmin"] },
-          status: "active",
+        const admin = await prisma.user.findFirst({
+          where: {
+            id: req.admin.id,
+            role: { in: ["admin", "superadmin"] },
+            status: "active",
+          }
         });
         if (admin) {
           adminExists = true;
@@ -315,3 +337,4 @@ export const verifyOwnershipOrAdmin = async (
     });
   }
 };
+

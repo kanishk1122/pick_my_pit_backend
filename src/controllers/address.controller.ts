@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { AuthenticatedRequest } from "../middleware/auth.middleware";
-import AddressModel from "../model/address.model";
+import { prisma } from "../config/database";
 import { ResponseHelper } from "../helper/utils";
 import Joi from "joi";
 
@@ -34,6 +34,28 @@ const addressUpdateValidation = Joi.object({
   isDefault: Joi.boolean(),
 }).min(1);
 
+function formatAddress(address: any) {
+  if (!address) return null;
+  return {
+    _id: address.id,
+    id: address.id,
+    userId: address.userId,
+    street: address.street,
+    city: address.city,
+    state: address.state,
+    landmark: address.landmark,
+    postalCode: address.postalCode,
+    country: address.country,
+    isDefault: address.isDefault,
+    createdAt: address.createdAt,
+    updatedAt: address.updatedAt,
+    location: {
+      type: "Point",
+      coordinates: [address.longitude, address.latitude]
+    }
+  };
+}
+
 export class AddressController {
   // Get user addresses
   static async getUserAddresses(
@@ -41,24 +63,35 @@ export class AddressController {
     res: Response
   ): Promise<void> {
     try {
+      if (!req.user) {
+        res.status(401).json(ResponseHelper.error("User not authenticated"));
+        return;
+      }
+
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 4; // Set limit to 4 for 2x2 grid
       const skip = (page - 1) * limit;
 
-      const addresses = await AddressModel.find({ userId: req.user.id })
-        .sort({
-          isDefault: -1,
-          createdAt: -1,
-        })
-        .skip(skip)
-        .limit(limit);
+      const addresses = await prisma.address.findMany({
+        where: { userId: req.user.id },
+        orderBy: [
+          { isDefault: "desc" },
+          { createdAt: "desc" }
+        ],
+        skip,
+        take: limit
+      });
 
-      const total = await AddressModel.countDocuments({ userId: req.user.id });
+      const total = await prisma.address.count({
+        where: { userId: req.user.id }
+      });
+
+      const formattedAddresses = addresses.map(formatAddress);
 
       res.status(200).json(
         ResponseHelper.success(
           {
-            addresses,
+            addresses: formattedAddresses,
             pagination: {
               total,
               page,
@@ -81,10 +114,16 @@ export class AddressController {
   ): Promise<void> {
     try {
       const { id } = req.params;
+      if (!req.user) {
+        res.status(401).json(ResponseHelper.error("User not authenticated"));
+        return;
+      }
 
-      const address = await AddressModel.findOne({
-        _id: id,
-        userId: req.user.id,
+      const address = await prisma.address.findFirst({
+        where: {
+          id,
+          userId: req.user.id,
+        }
       });
 
       if (!address) {
@@ -95,7 +134,7 @@ export class AddressController {
       res
         .status(200)
         .json(
-          ResponseHelper.success(address, "Address retrieved successfully")
+          ResponseHelper.success(formatAddress(address), "Address retrieved successfully")
         );
     } catch (error) {
       console.error("Get address error:", error);
@@ -109,6 +148,11 @@ export class AddressController {
     res: Response
   ): Promise<void> {
     try {
+      if (!req.user) {
+        res.status(401).json(ResponseHelper.error("User not authenticated"));
+        return;
+      }
+
       console.log("Create address request body:", req.user);
 
       const addressData = {
@@ -124,12 +168,32 @@ export class AddressController {
         return;
       }
 
-      const address = new AddressModel(value);
-      await address.save();
+      // If set as default, clear other default addresses for user
+      if (value.isDefault) {
+        await prisma.address.updateMany({
+          where: { userId: req.user.id },
+          data: { isDefault: false }
+        });
+      }
+
+      const address = await prisma.address.create({
+        data: {
+          userId: value.userId,
+          street: value.street,
+          city: value.city,
+          state: value.state,
+          longitude: value.location.coordinates[0],
+          latitude: value.location.coordinates[1],
+          landmark: value.landmark,
+          postalCode: value.postalCode,
+          country: value.country,
+          isDefault: value.isDefault
+        }
+      });
 
       res
         .status(201)
-        .json(ResponseHelper.success(address, "Address created successfully"));
+        .json(ResponseHelper.success(formatAddress(address), "Address created successfully"));
     } catch (error) {
       console.error("Create address error:", error);
       res.status(500).json(ResponseHelper.error("Internal server error"));
@@ -143,6 +207,10 @@ export class AddressController {
   ): Promise<void> {
     try {
       const { id } = req.params;
+      if (!req.user) {
+        res.status(401).json(ResponseHelper.error("User not authenticated"));
+        return;
+      }
 
       const { error, value } = addressUpdateValidation.validate(req.body);
       if (error) {
@@ -152,20 +220,44 @@ export class AddressController {
         return;
       }
 
-      const address = await AddressModel.findOneAndUpdate(
-        { _id: id, userId: req.user.id },
-        { $set: value },
-        { new: true }
-      );
+      // Check existence and ownership
+      const existingAddress = await prisma.address.findFirst({
+        where: { id, userId: req.user.id }
+      });
 
-      if (!address) {
+      if (!existingAddress) {
         res.status(404).json(ResponseHelper.error("Address not found"));
         return;
       }
 
+      // If changing to default, unset other defaults
+      if (value.isDefault) {
+        await prisma.address.updateMany({
+          where: { userId: req.user.id },
+          data: { isDefault: false }
+        });
+      }
+
+      // Map request properties to database fields
+      const updateData: any = {};
+      if (value.street !== undefined) updateData.street = value.street;
+      if (value.city !== undefined) updateData.city = value.city;
+      if (value.state !== undefined) updateData.state = value.state;
+      if (value.landmark !== undefined) updateData.landmark = value.landmark;
+      if (value.postalCode !== undefined) updateData.postalCode = value.postalCode;
+      if (value.country !== undefined) updateData.country = value.country;
+      if (value.isDefault !== undefined) updateData.isDefault = value.isDefault;
+      if (value.longitude !== undefined) updateData.longitude = value.longitude;
+      if (value.latitude !== undefined) updateData.latitude = value.latitude;
+
+      const address = await prisma.address.update({
+        where: { id },
+        data: updateData
+      });
+
       res
         .status(200)
-        .json(ResponseHelper.success(address, "Address updated successfully"));
+        .json(ResponseHelper.success(formatAddress(address), "Address updated successfully"));
     } catch (error) {
       console.error("Update address error:", error);
       res.status(500).json(ResponseHelper.error("Internal server error"));
@@ -179,16 +271,23 @@ export class AddressController {
   ): Promise<void> {
     try {
       const { id } = req.params;
+      if (!req.user) {
+        res.status(401).json(ResponseHelper.error("User not authenticated"));
+        return;
+      }
 
-      const address = await AddressModel.findOneAndDelete({
-        _id: id,
-        userId: req.user.id,
+      const existingAddress = await prisma.address.findFirst({
+        where: { id, userId: req.user.id }
       });
 
-      if (!address) {
+      if (!existingAddress) {
         res.status(404).json(ResponseHelper.error("Address not found"));
         return;
       }
+
+      await prisma.address.delete({
+        where: { id }
+      });
 
       res
         .status(200)
@@ -206,29 +305,36 @@ export class AddressController {
   ): Promise<void> {
     try {
       const { id } = req.params;
+      if (!req.user) {
+        res.status(401).json(ResponseHelper.error("User not authenticated"));
+        return;
+      }
 
-      // First, unset all default addresses for this user
-      await AddressModel.updateMany(
-        { userId: req.user.id },
-        { isDefault: false }
-      );
+      const existingAddress = await prisma.address.findFirst({
+        where: { id, userId: req.user.id }
+      });
 
-      // Then set the specified address as default
-      const address = await AddressModel.findOneAndUpdate(
-        { _id: id, userId: req.user.id },
-        { isDefault: true },
-        { new: true }
-      );
-
-      if (!address) {
+      if (!existingAddress) {
         res.status(404).json(ResponseHelper.error("Address not found"));
         return;
       }
 
+      // First, unset all default addresses for this user
+      await prisma.address.updateMany({
+        where: { userId: req.user.id },
+        data: { isDefault: false }
+      });
+
+      // Then set the specified address as default
+      const address = await prisma.address.update({
+        where: { id },
+        data: { isDefault: true }
+      });
+
       res
         .status(200)
         .json(
-          ResponseHelper.success(address, "Default address set successfully")
+          ResponseHelper.success(formatAddress(address), "Default address set successfully")
         );
     } catch (error) {
       console.error("Set default address error:", error);
@@ -242,9 +348,16 @@ export class AddressController {
     res: Response
   ): Promise<void> {
     try {
-      const address = await AddressModel.findOne({
-        userId: req.user.id,
-        isDefault: true,
+      if (!req.user) {
+        res.status(401).json(ResponseHelper.error("User not authenticated"));
+        return;
+      }
+
+      const address = await prisma.address.findFirst({
+        where: {
+          userId: req.user.id,
+          isDefault: true,
+        }
       });
 
       if (!address) {
@@ -256,7 +369,7 @@ export class AddressController {
         .status(200)
         .json(
           ResponseHelper.success(
-            address,
+            formatAddress(address),
             "Default address retrieved successfully"
           )
         );
@@ -266,3 +379,4 @@ export class AddressController {
     }
   }
 }
+

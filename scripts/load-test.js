@@ -1,6 +1,7 @@
 require('dotenv').config();
 const os = require('os');
-const mongoose = require('mongoose');
+const { Pool } = require('pg');
+let pgPool = null;
 
 // Configuration
 let TARGET_URL = 'http://localhost:5000';
@@ -194,11 +195,11 @@ async function runUserWorkflow(vuId) {
     
     userObjectId = regRes.data.data.user.id;
     
-    // Activate the newly registered user in MongoDB directly so they can log in and call APIs
-    if (mongoose.connection.readyState === 1) {
-      await mongoose.connection.collection('users').updateOne(
-        { email: email.toLowerCase() },
-        { $set: { status: 'active', emailConfirm: true } }
+    // Activate the newly registered user in PostgreSQL directly so they can log in and call APIs
+    if (pgPool) {
+      await pgPool.query(
+        'UPDATE "User" SET status = $1, "emailConfirm" = $2 WHERE LOWER(email) = $3',
+        ['active', true, email.toLowerCase()]
       );
     }
 
@@ -285,12 +286,10 @@ async function runUserWorkflow(vuId) {
 
   } finally {
     // Cleanup database records for this user iteration to prevent DB bloat
-    if (userObjectId && mongoose.connection.readyState === 1) {
+    if (userObjectId && pgPool) {
       try {
-        const uId = new mongoose.Types.ObjectId(userObjectId);
-        await mongoose.connection.collection('users').deleteOne({ _id: uId });
-        await mongoose.connection.collection('addresses').deleteMany({ userId: uId });
-        await mongoose.connection.collection('posts').deleteMany({ owner: uId });
+        // onDelete: Cascade will clean up addresses and posts automatically
+        await pgPool.query('DELETE FROM "User" WHERE id = $1', [userObjectId]);
       } catch (err) {
         // Silent catch for cleanup errors
       }
@@ -360,13 +359,14 @@ function printStatus(activeVUs) {
 // Main execution function
 async function main() {
   // Connect to database for user activation and cleanup
-  const dbUri = process.env.MONGO_URI || process.env.DATABASE_URL;
+  const dbUri = process.env.DATABASE_URL;
   if (dbUri) {
-    console.log(`Connecting to MongoDB for load-test support...`);
-    await mongoose.connect(dbUri);
-    console.log(`✅ Connected to MongoDB`);
+    console.log(`Connecting to PostgreSQL for load-test support...`);
+    pgPool = new Pool({ connectionString: dbUri });
+    await pgPool.query('SELECT NOW()');
+    console.log(`✅ Connected to PostgreSQL`);
   } else {
-    console.warn(`⚠️ MONGO_URI/DATABASE_URL not found in .env. Test will run without user activation.`);
+    console.warn(`⚠️ DATABASE_URL not found in .env. Test will run without user activation.`);
   }
 
   console.log(`Initializing system safety monitor...`);
@@ -420,9 +420,9 @@ async function main() {
   // Wait for active VUs to finish current cycle
   await Promise.all(runnerPromises);
 
-  // Close MongoDB connection
-  if (mongoose.connection.readyState !== 0) {
-    await mongoose.disconnect();
+  // Close PostgreSQL connection
+  if (pgPool) {
+    await pgPool.end();
   }
 
   // Print Final Summary

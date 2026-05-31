@@ -1,15 +1,39 @@
 import { Request, Response } from "express";
 import { AuthenticatedRequest } from "../middleware/auth.middleware";
-import PostModel from "../model/post.model";
+import { prisma } from "../config/database";
 import { post_validation, post_update_validation } from "../helper/validation";
 import { ResponseHelper } from "../helper/utils";
-import { Types } from "mongoose";
-import mongoose from "mongoose";
-import AddressModel from "../model/address.model";
 import { redisService } from "../utils/redis";
-import { ImageSafetyService } from "../utils/imageSafety";
-import { socketService } from "../utils/socket";
 import { postQueue } from "../queues/postQueue";
+import slugify from "slugify";
+
+function formatPost(post: any) {
+  if (!post) return null;
+  const formatted = {
+    ...post,
+    _id: post.id,
+    discription: post.discription, // preserve spelling from codebase
+    age: post.ageValue !== null && post.ageValue !== undefined ? { value: post.ageValue, unit: post.ageUnit } : undefined,
+    formattedAge: post.ageValue !== null && post.ageValue !== undefined ? `${post.ageValue} ${post.ageValue === 1 ? post.ageUnit.slice(0, -1) : post.ageUnit} old` : "",
+  };
+  if (formatted.owner) {
+    formatted.owner = {
+      ...formatted.owner,
+      _id: formatted.owner.id
+    };
+  }
+  if (formatted.address) {
+    formatted.address = {
+      ...formatted.address,
+      _id: formatted.address.id,
+      location: {
+        type: "Point",
+        coordinates: [formatted.address.longitude, formatted.address.latitude]
+      }
+    };
+  }
+  return formatted;
+}
 
 export class PostController {
   static async banPost(
@@ -18,23 +42,22 @@ export class PostController {
   ): Promise<void> {
     try {
       const { id } = req.params;
-      const post = await PostModel.findById(id);
+      const post = await prisma.post.findUnique({
+        where: { id }
+      });
       if (!post) {
         res.status(404).json(ResponseHelper.error("Post not found"));
         return;
       }
-      const updatedPost = await PostModel.findByIdAndUpdate(
-        id,
-        { $set: { status: "banned" } },
-        { new: true }
-      );
+      const updatedPost = await prisma.post.update({
+        where: { id },
+        data: { status: "banned" }
+      });
 
-      if (updatedPost) {
-        await redisService.del(`post:${updatedPost.slug}`);
-        await redisService.del(`post:id:${id}`);
-      }
+      await redisService.del(`post:${updatedPost.slug}`);
+      await redisService.del(`post:id:${id}`);
 
-      res.status(200).json(ResponseHelper.success(updatedPost, "Post banned successfully"));
+      res.status(200).json(ResponseHelper.success(formatPost(updatedPost), "Post banned successfully"));
     } catch (error) {
       console.error("Ban post error:", error);
       res.status(500).json(ResponseHelper.error("Internal server error"));
@@ -57,10 +80,27 @@ export class PostController {
         return;
       }
 
+      // Generate a unique slug in the controller so we have it before processing
+      const baseSlug = slugify(value.title || "pet-post", { lower: true, strict: true });
+      const uniqueId = new Date().getTime().toString().slice(-6);
+      const slug = `${baseSlug}-${uniqueId}`;
+
       const postData = {
-        ...value,
-        owner: req.user.id,
-        address: value.addressId,
+        title: value.title,
+        slug: slug,
+        discription: value.discription,
+        amount: value.amount,
+        type: value.type,
+        category: value.category,
+        species: value.species,
+        speciesSlug: slugify(value.species, { lower: true }),
+        breedSlug: slugify(value.category, { lower: true }),
+        images: value.images,
+        ageValue: value.age?.value,
+        ageUnit: value.age?.unit || "months",
+        ownerId: req.user.id,
+        addressId: value.addressId,
+        isNegotiable: value.isNegotiable,
       };
 
       // Queue the background processing job using BullMQ
@@ -80,40 +120,46 @@ export class PostController {
       const limit = parseInt(req.query.limit as string) || 10;
       const skip = (page - 1) * limit;
 
-      const filter: any = { status: "active" }; // Default to available posts
+      const filter: any = { status: "active" };
 
       // Filter by species
       if (req.query.species && req.query.species !== "") {
-        filter.species = { $regex: new RegExp(`^${req.query.species}$`, "i") };
+        filter.species = { equals: req.query.species as string, mode: "insensitive" };
       }
 
       // Filter by breed/category
       if (req.query.breed && req.query.breed !== "") {
-        filter.category = { $regex: new RegExp(`^${req.query.breed}$`, "i") };
+        filter.category = { equals: req.query.breed as string, mode: "insensitive" };
       }
 
       // Filter by type (free/paid)
       if (req.query.type && req.query.type !== "") {
-        filter.type = req.query.type;
+        filter.type = req.query.type as string;
       }
 
-      const posts = await PostModel.find(filter)
-        .populate("owner", "firstname lastname userpic")
-        .populate("address")
-        .skip(skip)
-        .limit(limit)
-        .sort({ createdAt: -1 })
-        .lean();
+      const posts = await prisma.post.findMany({
+        where: filter,
+        include: {
+          owner: {
+            select: { id: true, firstname: true, lastname: true, userpic: true }
+          },
+          address: true
+        },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit
+      });
 
-      console.log("[post controller] post :", posts); // Debug log
+      console.log("[post controller] posts fetched:", posts.length);
 
-      const total = await PostModel.countDocuments(filter);
+      const total = await prisma.post.count({ where: filter });
+      const formattedPosts = posts.map(formatPost);
 
       res
         .status(200)
         .json(
           ResponseHelper.paginated(
-            posts,
+            formattedPosts,
             total,
             page,
             limit,
@@ -131,11 +177,6 @@ export class PostController {
     try {
       const { id } = req.params;
 
-      if (!Types.ObjectId.isValid(id)) {
-        res.status(400).json(ResponseHelper.error("Invalid post ID format."));
-        return;
-      }
-
       // --- REDIS CACHE CHECK ---
       const cacheKey = `post:id:${id}`;
       const cachedPost = await redisService.get(cacheKey);
@@ -145,21 +186,29 @@ export class PostController {
         return;
       }
 
-      const post = await PostModel.findById(id)
-        .populate("owner", "firstname lastname userpic phone email")
-        .populate("address");
+      const post = await prisma.post.findUnique({
+        where: { id },
+        include: {
+          owner: {
+            select: { id: true, firstname: true, lastname: true, userpic: true, phone: true, email: true }
+          },
+          address: true
+        }
+      });
 
       if (!post) {
         res.status(404).json(ResponseHelper.error("Post not found"));
         return;
       }
 
+      const formatted = formatPost(post);
+
       // Update Cache
-      await redisService.set(cacheKey, post, 3600);
+      await redisService.set(cacheKey, formatted, 3600);
 
       res
         .status(200)
-        .json(ResponseHelper.success(post, "Post retrieved successfully"));
+        .json(ResponseHelper.success(formatted, "Post retrieved successfully"));
     } catch (error) {
       console.error("Get post error:", error);
       res.status(500).json(ResponseHelper.error("Internal server error"));
@@ -180,20 +229,27 @@ export class PostController {
 
       console.log("Admin fetching posts with filter:", filter);
 
-      const posts = await PostModel.find(filter)
-        .populate("owner", "firstname lastname userpic phone email")
-        .populate("address")
-        .skip(skip)
-        .limit(limit)
-        .sort({ createdAt: -1 });
+      const posts = await prisma.post.findMany({
+        where: filter,
+        include: {
+          owner: {
+            select: { id: true, firstname: true, lastname: true, userpic: true, phone: true, email: true }
+          },
+          address: true
+        },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit
+      });
 
-      const total = await PostModel.countDocuments(filter);
+      const total = await prisma.post.count({ where: filter });
+      const formattedPosts = posts.map(formatPost);
 
       res
         .status(200)
         .json(
           ResponseHelper.paginated(
-            posts,
+            formattedPosts,
             total,
             page,
             limit,
@@ -211,14 +267,15 @@ export class PostController {
     try {
       const { id } = req.params;
 
-      if (!Types.ObjectId.isValid(id)) {
-        res.status(400).json(ResponseHelper.error("Invalid post ID format."));
-        return;
-      }
-
-      const post = await PostModel.findById(id)
-        .populate("owner", "firstname lastname userpic phone email")
-        .populate("address");
+      const post = await prisma.post.findUnique({
+        where: { id },
+        include: {
+          owner: {
+            select: { id: true, firstname: true, lastname: true, userpic: true, phone: true, email: true }
+          },
+          address: true
+        }
+      });
 
       if (!post) {
         res.status(404).json(ResponseHelper.error("Post not found"));
@@ -228,7 +285,7 @@ export class PostController {
       res
         .status(200)
         .json(
-          ResponseHelper.success(post, "Post retrieved for admin successfully")
+          ResponseHelper.success(formatPost(post), "Post retrieved for admin successfully")
         );
     } catch (error) {
       console.error("Get post for admin error:", error);
@@ -250,19 +307,29 @@ export class PostController {
         return;
       }
 
-      const post = await PostModel.findBySlug(slug);
+      const post = await prisma.post.findUnique({
+        where: { slug: slug.toLowerCase() },
+        include: {
+          owner: {
+            select: { id: true, firstname: true, lastname: true, userpic: true }
+          },
+          address: true
+        }
+      });
 
       if (!post) {
         res.status(404).json(ResponseHelper.error("Post not found"));
         return;
       }
 
+      const formatted = formatPost(post);
+
       // Update Cache
-      await redisService.set(cacheKey, post, 3600);
+      await redisService.set(cacheKey, formatted, 3600);
 
       res
         .status(200)
-        .json(ResponseHelper.success(post, "Post retrieved successfully"));
+        .json(ResponseHelper.success(formatted, "Post retrieved successfully"));
     } catch (error) {
       console.error("Get post by slug error:", error);
       res.status(500).json(ResponseHelper.error("Internal server error"));
@@ -291,14 +358,14 @@ export class PostController {
       }
 
       // Find the post and check ownership
-      const post = await PostModel.findById(id);
+      const post = await prisma.post.findUnique({ where: { id } });
       if (!post) {
         res.status(404).json(ResponseHelper.error("Post not found"));
         return;
       }
 
       if (
-        post.owner.toString() !== req.user.id &&
+        post.ownerId !== req.user.id &&
         !["admin", "superadmin"].includes(req.user.role)
       ) {
         res
@@ -307,23 +374,36 @@ export class PostController {
         return;
       }
 
-      const updatedPost = await PostModel.findByIdAndUpdate(
-        id,
-        { $set: value },
-        { new: true }
-      )
-        .populate("owner", "firstname lastname userpic")
-        .populate("address");
+      // Process values for PostgreSQL schema
+      const updateData: any = {
+        title: value.title,
+        discription: value.discription,
+        amount: value.amount,
+        type: value.type,
+        category: value.category,
+        species: value.species,
+        speciesSlug: slugify(value.species, { lower: true }),
+        breedSlug: slugify(value.category, { lower: true }),
+      };
 
-      if (updatedPost) {
-        // Cache Invalidation
-        await redisService.del(`post:slug:${updatedPost.slug}`);
-        await redisService.del(`post:id:${id}`);
-      }
+      const updatedPost = await prisma.post.update({
+        where: { id },
+        data: updateData,
+        include: {
+          owner: {
+            select: { id: true, firstname: true, lastname: true, userpic: true }
+          },
+          address: true
+        }
+      });
+
+      // Cache Invalidation
+      await redisService.del(`post:slug:${updatedPost.slug}`);
+      await redisService.del(`post:id:${id}`);
 
       res
         .status(200)
-        .json(ResponseHelper.success(updatedPost, "Post updated successfully"));
+        .json(ResponseHelper.success(formatPost(updatedPost), "Post updated successfully"));
     } catch (error) {
       console.error("Update post error:", error);
       res.status(500).json(ResponseHelper.error("Internal server error"));
@@ -344,14 +424,14 @@ export class PostController {
       }
 
       // Find the post and check ownership
-      const post = await PostModel.findById(id);
+      const post = await prisma.post.findUnique({ where: { id } });
       if (!post) {
         res.status(404).json(ResponseHelper.error("Post not found"));
         return;
       }
 
       if (
-        post.owner.toString() !== req.user.id &&
+        post.ownerId !== req.user.id &&
         !["admin", "superadmin"].includes(req.user.role)
       ) {
         res
@@ -360,13 +440,13 @@ export class PostController {
         return;
       }
 
-      const deletedPost = await PostModel.findByIdAndDelete(id);
+      const deletedPost = await prisma.post.delete({
+        where: { id }
+      });
 
-      if (deletedPost) {
-        // Cache Invalidation
-        await redisService.del(`post:slug:${deletedPost.slug}`);
-        await redisService.del(`post:id:${id}`);
-      }
+      // Cache Invalidation
+      await redisService.del(`post:slug:${deletedPost.slug}`);
+      await redisService.del(`post:id:${id}`);
 
       res
         .status(200)
@@ -392,19 +472,27 @@ export class PostController {
       const limit = parseInt(req.query.limit as string) || 10;
       const skip = (page - 1) * limit;
 
-      const posts = await PostModel.find({ owner: req.user.id })
-        .populate("address")
-        .skip(skip)
-        .limit(limit)
-        .sort({ createdAt: -1 });
+      const posts = await prisma.post.findMany({
+        where: { ownerId: req.user.id },
+        include: {
+          address: true
+        },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit
+      });
 
-      const total = await PostModel.countDocuments({ owner: req.user.id });
+      const total = await prisma.post.count({
+        where: { ownerId: req.user.id }
+      });
+
+      const formattedPosts = posts.map(formatPost);
 
       res
         .status(200)
         .json(
           ResponseHelper.paginated(
-            posts,
+            formattedPosts,
             total,
             page,
             limit,
@@ -433,26 +521,26 @@ export class PostController {
         return;
       }
 
-      const filter: any = { status: "active" }; // Default to available posts
+      const filter: any = { status: "active" };
 
       // Filter by status only if explicitly provided
       if (req.query.status && req.query.status !== "") {
-        filter.status = req.query.status;
+        filter.status = req.query.status as string;
       }
 
       // Filter by species
       if (req.query.species && req.query.species !== "") {
-        filter.species = { $regex: new RegExp(`^${req.query.species}$`, "i") };
+        filter.species = { equals: req.query.species as string, mode: "insensitive" };
       }
 
       // Filter by breed/category
       if (req.query.breed && req.query.breed !== "") {
-        filter.category = { $regex: new RegExp(`^${req.query.breed}$`, "i") };
+        filter.category = { equals: req.query.breed as string, mode: "insensitive" };
       }
 
       // Filter by type (free/paid)
       if (req.query.type && req.query.type !== "") {
-        filter.type = req.query.type;
+        filter.type = req.query.type as string;
       }
 
       // Filter by price range, only if type is 'paid'
@@ -462,8 +550,8 @@ export class PostController {
           parseFloat(req.query.maxPrice as string) || Number.MAX_SAFE_INTEGER;
 
         filter.amount = {
-          $gte: minPrice,
-          $lte: maxPrice,
+          gte: minPrice,
+          lte: maxPrice,
         };
       }
       if (req.query.minPrice === "" && req.query.maxPrice === "") {
@@ -471,108 +559,119 @@ export class PostController {
       }
       if (Number(req.query.minPrice) > 0) {
         const minPrice = parseFloat(req.query.minPrice as string) || 0;
-        filter.amount = { $gte: minPrice };
+        filter.amount = { ...filter.amount, gte: minPrice };
       }
       if (req.query && Number(req.query.maxPrice) > 0) {
         const maxPrice =
           parseFloat(req.query.maxPrice as string) || Number.MAX_SAFE_INTEGER;
-        filter.amount = { $lte: maxPrice };
+        filter.amount = { ...filter.amount, lte: maxPrice };
       }
 
       // Search by title, description, or city/state
       if (req.query.search && req.query.search !== "") {
-        const searchRegex = { $regex: req.query.search, $options: "i" };
+        const searchStr = req.query.search as string;
         
-        // 1. Find addresses matching city or state
-        const matchingAddressIds = await AddressModel.find({
-          $or: [
-            { city: searchRegex },
-            { state: searchRegex }
-          ]
-        }).distinct("_id");
+        // Find addresses matching city or state
+        const matchingAddresses = await prisma.address.findMany({
+          where: {
+            OR: [
+              { city: { contains: searchStr, mode: "insensitive" } },
+              { state: { contains: searchStr, mode: "insensitive" } }
+            ]
+          },
+          select: { id: true }
+        });
+        const matchingAddressIds = matchingAddresses.map(addr => addr.id);
 
-        filter.$or = [
-          { title: searchRegex },
-          { discription: searchRegex },
-          { address: { $in: matchingAddressIds } }
+        filter.OR = [
+          { title: { contains: searchStr, mode: "insensitive" } },
+          { discription: { contains: searchStr, mode: "insensitive" } },
+          { addressId: { in: matchingAddressIds } }
         ];
       }
 
       // Direct City/State Filtering
       if (req.query.city && req.query.city !== "") {
-        const cityAddressIds = await AddressModel.find({
-          city: { $regex: new RegExp(`^${req.query.city}$`, "i") }
-        }).distinct("_id");
-        filter.address = { $in: cityAddressIds };
+        const cityAddresses = await prisma.address.findMany({
+          where: {
+            city: { equals: req.query.city as string, mode: "insensitive" }
+          },
+          select: { id: true }
+        });
+        filter.addressId = { in: cityAddresses.map(addr => addr.id) };
       }
 
-      // Location-based filtering (Radius search)
-      let isDistanceSearch = false;
+      // Location-based filtering (Radius search using PostGIS)
       if (req.query.nearMe === "true") {
         const longitude = parseFloat(req.query.longitude as string);
         const latitude = parseFloat(req.query.latitude as string);
         const maxDistanceKm = parseFloat(req.query.maxDistance as string) || 50; // Default 50km
 
         if (!isNaN(longitude) && !isNaN(latitude)) {
-          isDistanceSearch = true;
-          // 1. Calculate the radius in radians (Earth radius ≈ 6378.1 km)
-          const radiusInRadians = maxDistanceKm / 6378.1;
+          const radiusInMeters = maxDistanceKm * 1000;
 
-          // 2. Find addresses within range
-          const addressIds = await AddressModel.find({
-            location: {
-              $geoWithin: {
-                $centerSphere: [[longitude, latitude], radiusInRadians],
-              },
-            },
-          }).distinct("_id");
+          // Find address IDs within PostGIS range
+          const matchingAddresses = await prisma.$queryRaw<Array<{ id: string }>>`
+            SELECT id FROM "Address"
+            WHERE ST_DWithin(
+              ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
+              ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography,
+              ${radiusInMeters}
+            )
+          `;
+          const geoAddressIds = matchingAddresses.map(addr => addr.id);
 
-          if (addressIds.length > 0) {
-            filter.address = {
-              $in: addressIds.map((id: any) => new mongoose.Types.ObjectId(id)),
-            };
+          if (filter.addressId) {
+            const existingIds = filter.addressId.in || [];
+            filter.addressId = { in: existingIds.filter((id: string) => geoAddressIds.includes(id)) };
           } else {
-            filter.address = { $in: [] };
+            filter.addressId = { in: geoAddressIds };
           }
         }
       }
 
       // Sorting logic
-      let sort: any = {};
+      let orderBy: any = {};
       switch (sortBy) {
         case "oldest":
-          sort = { createdAt: 1 };
+          orderBy = { createdAt: "asc" };
           break;
         case "price-low":
-          sort = { amount: 1 };
+          orderBy = { amount: "asc" };
           break;
         case "price-high":
-          sort = { amount: -1 };
+          orderBy = { amount: "desc" };
           break;
         case "title-az":
-          sort = { title: 1 };
+          orderBy = { title: "asc" };
           break;
         case "title-za":
-          sort = { title: -1 };
+          orderBy = { title: "desc" };
           break;
         case "newest":
         default:
-          sort = { createdAt: -1 };
+          orderBy = { createdAt: "desc" };
           break;
       }
 
-      const posts = await PostModel.find(filter)
-        .populate("address")
-        .populate("owner", "firstname lastname userpic")
-        .skip(skip)
-        .limit(limit)
-        .sort(sort)
-        .lean();
+      const posts = await prisma.post.findMany({
+        where: filter,
+        include: {
+          address: true,
+          owner: {
+            select: { id: true, firstname: true, lastname: true, userpic: true }
+          }
+        },
+        skip,
+        take: limit,
+        orderBy
+      });
 
-      const total = await PostModel.countDocuments(filter);
+      const total = await prisma.post.count({ where: filter });
+      const formattedPosts = posts.map(formatPost);
 
       const responseData = ResponseHelper.paginated(
-        posts,
+        formattedPosts,
         total,
         page,
         limit,
@@ -598,53 +697,49 @@ export class PostController {
       const limit = parseInt(req.query.limit as string) || 10;
       const skip = (page - 1) * limit;
 
-      // 1. Extract Query Parameters
       const { search, status, species } = req.query;
 
-      // 2. Initialize Filter Object
       const filter: any = {};
 
       // --- Status Filter ---
       if (status) {
-        // If frontend specifically asks for "all", we don't filter by status.
-        // Otherwise, we filter by the specific status (pending, approved, rejected)
         if (status !== "all") {
-          filter.status = status;
+          filter.status = status as string;
         }
       } else {
-        // Default Fallback: If no status param is provided at all,
-        // strictly show "pending" (matches route name intent)
         filter.status = "pending";
       }
 
       // --- Species Filter ---
       if (species && species !== "all") {
-        filter.species = species;
+        filter.species = species as string;
       }
 
-      // --- Search Filter (Regex) ---
+      // --- Search Filter ---
       if (search) {
-        // Create a case-insensitive regex
-        const searchRegex = new RegExp(search as string, "i");
-
-        // Search in Title, Description, or Breed
-        filter.$or = [
-          { title: searchRegex },
-          { description: searchRegex },
-          { breed: searchRegex },
+        const searchStr = search as string;
+        filter.OR = [
+          { title: { contains: searchStr, mode: "insensitive" } },
+          { discription: { contains: searchStr, mode: "insensitive" } },
+          { category: { contains: searchStr, mode: "insensitive" } },
         ];
       }
 
-      // 3. Execute Query with the Filter
-      const posts = await PostModel.find(filter)
-        .populate("owner", "firstname lastname userpic phone email")
-        .populate("address")
-        .skip(skip)
-        .limit(limit)
-        .sort({ createdAt: -1 });
+      const posts = await prisma.post.findMany({
+        where: filter,
+        include: {
+          owner: {
+            select: { id: true, firstname: true, lastname: true, userpic: true, phone: true, email: true }
+          },
+          address: true
+        },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit
+      });
 
-      // 4. Get Total Count based on the SAME filter (Crucial for correct pagination)
-      const total = await PostModel.countDocuments(filter);
+      const total = await prisma.post.count({ where: filter });
+      const formattedPosts = posts.map(formatPost);
 
       console.log(`Found ${posts.length} posts. Total matching: ${total}`);
 
@@ -652,7 +747,7 @@ export class PostController {
         .status(200)
         .json(
           ResponseHelper.paginated(
-            posts,
+            formattedPosts,
             total,
             page,
             limit,
@@ -672,30 +767,25 @@ export class PostController {
   ): Promise<void> {
     try {
       const { id } = req.params;
-      // Find the post
-      const post = await PostModel.findById(id);
+      const post = await prisma.post.findUnique({ where: { id } });
       if (!post) {
         res.status(404).json(ResponseHelper.error("Post not found"));
         return;
       }
 
       // Update status to active
-      const updatedPost = await PostModel.findByIdAndUpdate(
-        id,
-        { $set: { status: "active" } },
-        { new: true }
-      );
+      const updatedPost = await prisma.post.update({
+        where: { id },
+        data: { status: "active" }
+      });
 
-      // Invalidate cache
-      if (updatedPost) {
-        await redisService.del(`post:slug:${updatedPost.slug}`);
-        await redisService.del(`post:id:${id}`);
-      }
+      await redisService.del(`post:slug:${updatedPost.slug}`);
+      await redisService.del(`post:id:${id}`);
 
       res
         .status(200)
         .json(
-          ResponseHelper.success(updatedPost, "Post approved successfully")
+          ResponseHelper.success(formatPost(updatedPost), "Post approved successfully")
         );
     } catch (error) {
       console.error("Approve post error:", error);
@@ -712,37 +802,34 @@ export class PostController {
       const { id } = req.params;
       const { reason } = req.body;
 
-      // Find the post
-      const post = await PostModel.findById(id);
+      const post = await prisma.post.findUnique({ where: { id } });
       if (!post) {
         res.status(404).json(ResponseHelper.error("Post not found"));
         return;
       }
 
       // Update status to rejected
-      const updatedPost = await PostModel.findByIdAndUpdate(
-        id,
-        {
-          $set: {
-            status: "rejected",
-            "meta.rejectmes": reason,
-          },
+      const updatedPost = await prisma.post.update({
+        where: { id },
+        data: {
+          status: "rejected",
+          meta: { rejectReason: reason }
         },
-        { new: true }
-      )
-        .populate("owner", "firstname lastname userpic")
-        .populate("address");
+        include: {
+          owner: {
+            select: { id: true, firstname: true, lastname: true, userpic: true }
+          },
+          address: true
+        }
+      });
 
-      // Invalidate cache
-      if (updatedPost) {
-        await redisService.del(`post:slug:${updatedPost.slug}`);
-        await redisService.del(`post:id:${id}`);
-      }
+      await redisService.del(`post:slug:${updatedPost.slug}`);
+      await redisService.del(`post:id:${id}`);
 
       res
         .status(200)
         .json(
-          ResponseHelper.success(updatedPost, "Post rejected successfully")
+          ResponseHelper.success(formatPost(updatedPost), "Post rejected successfully")
         );
     } catch (error) {
       console.error("Reject post error:", error);
@@ -750,3 +837,4 @@ export class PostController {
     }
   }
 }
+

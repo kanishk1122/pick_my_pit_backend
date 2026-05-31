@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { AuthenticatedRequest } from "../middleware/auth.middleware";
-import SpeciesModel from "../model/species.model";
+import { prisma } from "../config/database";
 import { ResponseHelper } from "../helper/utils";
 import Joi from "joi";
 
@@ -13,26 +13,39 @@ const speciesValidation = Joi.object({
   active: Joi.boolean().default(true),
 });
 
+function formatSpecies(species: any) {
+  if (!species) return null;
+  return {
+    ...species,
+    _id: species.id,
+  };
+}
+
 export class SpeciesController {
   // Get all species
   static async getAllSpecies(req: Request, res: Response): Promise<void> {
     try {
       const activeOnly = req.query.active === "true";
 
-      let query = {};
+      const query: any = {};
       if (activeOnly) {
-        query = { active: true };
+        query.active = true;
       }
 
-      const species = await SpeciesModel.find(query).sort({
-        popularity: -1,
-        displayName: 1,
+      const species = await prisma.species.findMany({
+        where: query,
+        orderBy: [
+          { popularity: "desc" },
+          { displayName: "asc" }
+        ]
       });
+
+      const formattedSpecies = species.map(formatSpecies);
 
       res
         .status(200)
         .json(
-          ResponseHelper.success(species, "Species retrieved successfully")
+          ResponseHelper.success(formattedSpecies, "Species retrieved successfully")
         );
     } catch (error) {
       console.error("Get species error:", error);
@@ -45,7 +58,9 @@ export class SpeciesController {
     try {
       const { id } = req.params;
 
-      const species = await SpeciesModel.findById(id);
+      const species = await prisma.species.findUnique({
+        where: { id }
+      });
 
       if (!species) {
         res.status(404).json(ResponseHelper.error("Species not found"));
@@ -55,7 +70,7 @@ export class SpeciesController {
       res
         .status(200)
         .json(
-          ResponseHelper.success(species, "Species retrieved successfully")
+          ResponseHelper.success(formatSpecies(species), "Species retrieved successfully")
         );
     } catch (error) {
       console.error("Get species error:", error);
@@ -68,7 +83,11 @@ export class SpeciesController {
     try {
       const { name } = req.params;
 
-      const species = await SpeciesModel.findByName(name);
+      const species = await prisma.species.findFirst({
+        where: {
+          name: name.toLowerCase()
+        }
+      });
 
       if (!species) {
         res.status(404).json(ResponseHelper.error("Species not found"));
@@ -78,7 +97,7 @@ export class SpeciesController {
       res
         .status(200)
         .json(
-          ResponseHelper.success(species, "Species retrieved successfully")
+          ResponseHelper.success(formatSpecies(species), "Species retrieved successfully")
         );
     } catch (error) {
       console.error("Get species by name error:", error);
@@ -101,7 +120,9 @@ export class SpeciesController {
       }
 
       // Check if species already exists
-      const existingSpecies = await SpeciesModel.findByName(value.name);
+      const existingSpecies = await prisma.species.findFirst({
+        where: { name: value.name.toLowerCase() }
+      });
       if (existingSpecies) {
         res
           .status(409)
@@ -109,12 +130,19 @@ export class SpeciesController {
         return;
       }
 
-      const species = new SpeciesModel(value);
-      await species.save();
+      const species = await prisma.species.create({
+        data: {
+          name: value.name.toLowerCase(),
+          displayName: value.displayName,
+          description: value.description || "",
+          icon: value.icon || "",
+          active: value.active
+        }
+      });
 
       res
         .status(201)
-        .json(ResponseHelper.success(species, "Species created successfully"));
+        .json(ResponseHelper.success(formatSpecies(species), "Species created successfully"));
     } catch (error) {
       console.error("Create species error:", error);
       res.status(500).json(ResponseHelper.error("Internal server error"));
@@ -137,20 +165,26 @@ export class SpeciesController {
         return;
       }
 
-      const species = await SpeciesModel.findByIdAndUpdate(
-        id,
-        { $set: value },
-        { new: true }
-      );
-
-      if (!species) {
+      const existingSpecies = await prisma.species.findUnique({ where: { id } });
+      if (!existingSpecies) {
         res.status(404).json(ResponseHelper.error("Species not found"));
         return;
       }
 
+      const species = await prisma.species.update({
+        where: { id },
+        data: {
+          name: value.name.toLowerCase(),
+          displayName: value.displayName,
+          description: value.description || "",
+          icon: value.icon || "",
+          active: value.active
+        }
+      });
+
       res
         .status(200)
-        .json(ResponseHelper.success(species, "Species updated successfully"));
+        .json(ResponseHelper.success(formatSpecies(species), "Species updated successfully"));
     } catch (error) {
       console.error("Update species error:", error);
       res.status(500).json(ResponseHelper.error("Internal server error"));
@@ -165,12 +199,15 @@ export class SpeciesController {
     try {
       const { id } = req.params;
 
-      const species = await SpeciesModel.findByIdAndDelete(id);
-
-      if (!species) {
+      const existingSpecies = await prisma.species.findUnique({ where: { id } });
+      if (!existingSpecies) {
         res.status(404).json(ResponseHelper.error("Species not found"));
         return;
       }
+
+      await prisma.species.delete({
+        where: { id }
+      });
 
       res
         .status(200)
@@ -184,13 +221,21 @@ export class SpeciesController {
   // Get active species for public use
   static async getActiveSpecies(req: Request, res: Response): Promise<void> {
     try {
-      const species = await SpeciesModel.findActive();
+      const species = await prisma.species.findMany({
+        where: { active: true },
+        orderBy: [
+          { popularity: "desc" },
+          { displayName: "asc" }
+        ]
+      });
+
+      const formattedSpecies = species.map(formatSpecies);
 
       res
         .status(200)
         .json(
           ResponseHelper.success(
-            species,
+            formattedSpecies,
             "Active species retrieved successfully"
           )
         );
@@ -203,27 +248,21 @@ export class SpeciesController {
   // Get species hierarchy with breeds
   static async getSpeciesHierarchy(req: Request, res: Response): Promise<void> {
     try {
-      const species = await SpeciesModel.find({ active: true }).sort({
-        popularity: -1,
-        displayName: 1,
+      const species = await prisma.species.findMany({
+        where: { active: true },
+        orderBy: [
+          { popularity: "desc" },
+          { displayName: "asc" }
+        ]
       });
 
-      // If you have a breed model, you can populate it here
-      // const speciesWithBreeds = await Promise.all(
-      //   species.map(async (s) => {
-      //     const breeds = await BreedModel.find({ species: s._id, active: true });
-      //     return {
-      //       ...s.toObject(),
-      //       breeds
-      //     };
-      //   })
-      // );
+      const formattedSpecies = species.map(formatSpecies);
 
       res
         .status(200)
         .json(
           ResponseHelper.success(
-            species,
+            formattedSpecies,
             "Species hierarchy retrieved successfully"
           )
         );
@@ -233,3 +272,4 @@ export class SpeciesController {
     }
   }
 }
+

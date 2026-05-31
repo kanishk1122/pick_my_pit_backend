@@ -1,0 +1,15 @@
+model Admin {
+  id           String   @id @default(uuid())
+  firstname    String
+  lastname     String
+  email        String   @unique
+  password     String
+  role         String   @default("admin") // "admin" | "superadmin"
+  status       String   @default("active") // "active" | "inactive"
+  gender       String?  // "male" | "female" | "other"
+  emailConfirm Boolean  @default(true)
+  sessionToken String?
+  userpic      String   @default("https://i.pinimg.com/564x/d8/2c/87/d82c87e21e84a3e7649d16c968105553.jpg")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}

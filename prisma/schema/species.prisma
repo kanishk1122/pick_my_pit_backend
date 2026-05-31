@@ -1,0 +1,29 @@
+model Breed {
+  id              String   @id @default(uuid())
+  name            String
+  speciesId       String
+  species         Species  @relation(fields: [speciesId], references: [id], onDelete: Cascade)
+  speciesName     String
+  description     String   @default("")
+  characteristics String[]
+  active          Boolean  @default(true)
+  popularity      Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([speciesId, name])
+}
+
+model Species {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  displayName String
+  description String   @default("")
+  icon        String   @default("")
+  active      Boolean  @default(true)
+  popularity  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  breeds      Breed[]
+}

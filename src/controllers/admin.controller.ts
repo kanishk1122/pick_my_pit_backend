@@ -1,10 +1,9 @@
 import { Request, Response } from "express";
 import { AuthenticatedRequest } from "../middleware/auth.middleware";
-import AdminModel from "../model/admin.model";
-import UserModel from "../model/user.model";
-import PostModel from "../model/post.model";
+import { prisma } from "../config/database";
 import { ResponseHelper } from "../helper/utils";
 import Joi from "joi";
+import bcrypt from "bcryptjs";
 
 // Validation schemas
 const adminCreateValidation = Joi.object({
@@ -25,6 +24,16 @@ const adminUpdateValidation = Joi.object({
   gender: Joi.string().valid("male", "female", "other"),
 }).min(1);
 
+function formatAdmin(admin: any) {
+  if (!admin) return null;
+  const formatted = {
+    ...admin,
+    _id: admin.id,
+  };
+  delete formatted.password;
+  return formatted;
+}
+
 export class AdminController {
   // Get dashboard statistics
   static async getDashboardStats(
@@ -32,28 +41,33 @@ export class AdminController {
     res: Response
   ): Promise<void> {
     try {
-      const totalUsers = await UserModel.countDocuments();
-      const activeUsers = await UserModel.countDocuments({ status: "active" });
-      const totalPosts = await PostModel.countDocuments();
-      const availablePosts = await PostModel.countDocuments({
-        status: "available",
+      const totalUsers = await prisma.user.count();
+      const activeUsers = await prisma.user.count({ where: { status: "active" } });
+      const totalPosts = await prisma.post.count();
+      const availablePosts = await prisma.post.count({
+        where: { status: "available" }
       });
-      const soldPosts = await PostModel.countDocuments({ status: "sold" });
-      const adoptedPosts = await PostModel.countDocuments({
-        status: "adopted",
+      const soldPosts = await prisma.post.count({ where: { status: "sold" } });
+      const adoptedPosts = await prisma.post.count({
+        where: { status: "adopted" }
       });
-      const totalAdmins = await AdminModel.countDocuments();
+      const totalAdmins = await prisma.admin.count();
 
       // Recent users (last 30 days)
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const recentUsers = await UserModel.countDocuments({
-        createdAt: { $gte: thirtyDaysAgo },
+      
+      const recentUsers = await prisma.user.count({
+        where: {
+          createdAt: { gte: thirtyDaysAgo }
+        }
       });
 
       // Recent posts (last 30 days)
-      const recentPosts = await PostModel.countDocuments({
-        createdAt: { $gte: thirtyDaysAgo },
+      const recentPosts = await prisma.post.count({
+        where: {
+          createdAt: { gte: thirtyDaysAgo }
+        }
       });
 
       const stats = {
@@ -98,19 +112,20 @@ export class AdminController {
       const limit = parseInt(req.query.limit as string) || 10;
       const skip = (page - 1) * limit;
 
-      const admins = await AdminModel.find()
-        .select("-password")
-        .skip(skip)
-        .limit(limit)
-        .sort({ createdAt: -1 });
+      const admins = await prisma.admin.findMany({
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit
+      });
 
-      const total = await AdminModel.countDocuments();
+      const total = await prisma.admin.count();
+      const formattedAdmins = admins.map(formatAdmin);
 
       res
         .status(200)
         .json(
           ResponseHelper.paginated(
-            admins,
+            formattedAdmins,
             total,
             page,
             limit,
@@ -131,7 +146,9 @@ export class AdminController {
     try {
       const { id } = req.params;
 
-      const admin = await AdminModel.findById(id).select("-password");
+      const admin = await prisma.admin.findUnique({
+        where: { id }
+      });
 
       if (!admin) {
         res.status(404).json(ResponseHelper.error("Admin not found"));
@@ -140,7 +157,7 @@ export class AdminController {
 
       res
         .status(200)
-        .json(ResponseHelper.success(admin, "Admin retrieved successfully"));
+        .json(ResponseHelper.success(formatAdmin(admin), "Admin retrieved successfully"));
     } catch (error) {
       console.error("Get admin error:", error);
       res.status(500).json(ResponseHelper.error("Internal server error"));
@@ -162,7 +179,9 @@ export class AdminController {
       }
 
       // Check if admin already exists
-      const existingAdmin = await AdminModel.findByEmail(value.email);
+      const existingAdmin = await prisma.admin.findUnique({
+        where: { email: value.email.toLowerCase() }
+      });
       if (existingAdmin) {
         res
           .status(409)
@@ -170,17 +189,25 @@ export class AdminController {
         return;
       }
 
-      const admin = new AdminModel(value);
-      await admin.save();
+      // Hash password
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(value.password, salt);
 
-      const adminResponse = await AdminModel.findById(admin._id).select(
-        "-password"
-      );
+      const admin = await prisma.admin.create({
+        data: {
+          firstname: value.firstname,
+          lastname: value.lastname,
+          email: value.email.toLowerCase(),
+          password: hashedPassword,
+          role: value.role,
+          gender: value.gender,
+        }
+      });
 
       res
         .status(201)
         .json(
-          ResponseHelper.success(adminResponse, "Admin created successfully")
+          ResponseHelper.success(formatAdmin(admin), "Admin created successfully")
         );
     } catch (error) {
       console.error("Create admin error:", error);
@@ -204,20 +231,20 @@ export class AdminController {
         return;
       }
 
-      const admin = await AdminModel.findByIdAndUpdate(
-        id,
-        { $set: value },
-        { new: true }
-      ).select("-password");
-
-      if (!admin) {
+      const existingAdmin = await prisma.admin.findUnique({ where: { id } });
+      if (!existingAdmin) {
         res.status(404).json(ResponseHelper.error("Admin not found"));
         return;
       }
 
+      const admin = await prisma.admin.update({
+        where: { id },
+        data: value
+      });
+
       res
         .status(200)
-        .json(ResponseHelper.success(admin, "Admin updated successfully"));
+        .json(ResponseHelper.success(formatAdmin(admin), "Admin updated successfully"));
     } catch (error) {
       console.error("Update admin error:", error);
       res.status(500).json(ResponseHelper.error("Internal server error"));
@@ -245,12 +272,9 @@ export class AdminController {
         return;
       }
 
-      const admin = await AdminModel.findByIdAndDelete(id);
-
-      if (!admin) {
-        res.status(404).json(ResponseHelper.error("Admin not found"));
-        return;
-      }
+      await prisma.admin.delete({
+        where: { id }
+      });
 
       res
         .status(200)
@@ -272,7 +296,9 @@ export class AdminController {
         return;
       }
 
-      const admin = await AdminModel.findById(req.admin.id).select("-password");
+      const admin = await prisma.admin.findUnique({
+        where: { id: req.admin.id }
+      });
 
       if (!admin) {
         res.status(404).json(ResponseHelper.error("Admin not found"));
@@ -282,7 +308,7 @@ export class AdminController {
       res
         .status(200)
         .json(
-          ResponseHelper.success(admin, "Admin profile retrieved successfully")
+          ResponseHelper.success(formatAdmin(admin), "Admin profile retrieved successfully")
         );
     } catch (error) {
       console.error("Get admin profile error:", error);
@@ -315,18 +341,18 @@ export class AdminController {
         return;
       }
 
-      const admin = await AdminModel.findByIdAndUpdate(
-        req.admin.id,
-        { $set: updates },
-        { new: true }
-      ).select("-password");
+      const admin = await prisma.admin.update({
+        where: { id: req.admin.id },
+        data: updates
+      });
 
       res
         .status(200)
-        .json(ResponseHelper.success(admin, "Profile updated successfully"));
+        .json(ResponseHelper.success(formatAdmin(admin), "Profile updated successfully"));
     } catch (error) {
       console.error("Update admin profile error:", error);
       res.status(500).json(ResponseHelper.error("Internal server error"));
     }
   }
 }
+

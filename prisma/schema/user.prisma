@@ -1,0 +1,56 @@
+model User {
+  id                  String   @id @default(uuid())
+  firstname           String
+  lastname            String
+  email               String   @unique
+  password            String?
+  role                String   @default("user") // "user" | "admin" | "superadmin"
+  status              String   @default("inactive") // "active" | "inactive" | "blocked"
+  gender              String   @default("other") // "male" | "female" | "other"
+  userpic             String   @default("https://i.pinimg.com/564x/d8/2c/87/d82c87e21e84a3e7649d16c968105553.jpg")
+  emailConfirm        Boolean  @default(false)
+  emailConfirmToken   String?
+  emailConfirmExpires DateTime?
+  sessionToken        String?
+  phone               String?
+  phoneNumber         String?
+  about               String?
+  address             String?
+  city                String?
+  state               String?
+  zipCode             String?
+  country             String?
+  referralCode        String?  @unique
+  referredById        String?
+  referredBy          User?    @relation("Referrals", fields: [referredById], references: [id])
+  referrals           User[]   @relation("Referrals")
+  coins               Int      @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  addresses           Address[]
+  posts               Post[]    @relation("UserPosts")
+  blogs               Blog[]
+  sentMessages        Message[] @relation("SentMessages")
+  receivedMessages    Message[] @relation("ReceivedMessages")
+  chats               Chat[]    @relation("ChatParticipants")
+}
+
+model Address {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  street      String
+  city        String
+  state       String
+  latitude    Float
+  longitude   Float
+  landmark    String?
+  postalCode  String
+  country     String
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  posts       Post[]
+}

@@ -21,6 +21,21 @@ services:
     networks:
       - project_network
 
+  # PostgreSQL with PostGIS Container
+  postgres:
+    image: postgis/postgis:15-3.3-alpine
+    container_name: project_postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=pickmypit
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - project_network
+
 networks:
   project_network:
     driver: bridge
@@ -28,3 +43,6 @@ networks:
 volumes:
   mongo_data:
     driver: local
+  postgres_data:
+    driver: local
+

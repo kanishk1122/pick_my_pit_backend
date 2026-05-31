@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
 import { AuthenticatedRequest } from "../middleware/auth.middleware";
-import BreedModel from "../model/breed.model";
-import SpeciesModel from "../model/species.model";
+import { prisma } from "../config/database";
 import { ResponseHelper } from "../helper/utils";
 import Joi from "joi";
 
@@ -15,6 +14,21 @@ const breedValidation = Joi.object({
   active: Joi.boolean().default(true),
 });
 
+function formatBreed(breed: any) {
+  if (!breed) return null;
+  const formatted = {
+    ...breed,
+    _id: breed.id,
+  };
+  if (formatted.species) {
+    formatted.species = {
+      ...formatted.species,
+      _id: formatted.species.id
+    };
+  }
+  return formatted;
+}
+
 export class BreedController {
   // Get all breeds
   static async getAllBreeds(req: Request, res: Response): Promise<void> {
@@ -27,26 +41,34 @@ export class BreedController {
       let query: any = {};
 
       if (species) {
-        query.species = species;
+        query.speciesId = species as string;
       }
 
       if (active === "true") {
         query.active = true;
       }
 
-      const breeds = await BreedModel.find(query)
-        .populate("species")
-        .skip(skip)
-        .limit(limit)
-        .sort({ popularity: -1, name: 1 });
+      const breeds = await prisma.breed.findMany({
+        where: query,
+        include: {
+          species: true
+        },
+        orderBy: [
+          { popularity: "desc" },
+          { name: "asc" }
+        ],
+        skip,
+        take: limit
+      });
 
-      const total = await BreedModel.countDocuments(query);
+      const total = await prisma.breed.count({ where: query });
+      const formattedBreeds = breeds.map(formatBreed);
 
       res
         .status(200)
         .json(
           ResponseHelper.paginated(
-            breeds,
+            formattedBreeds,
             total,
             page,
             limit,
@@ -64,7 +86,12 @@ export class BreedController {
     try {
       const { id } = req.params;
 
-      const breed = await BreedModel.findById(id).populate("species");
+      const breed = await prisma.breed.findUnique({
+        where: { id },
+        include: {
+          species: true
+        }
+      });
 
       if (!breed) {
         res.status(404).json(ResponseHelper.error("Breed not found"));
@@ -73,7 +100,7 @@ export class BreedController {
 
       res
         .status(200)
-        .json(ResponseHelper.success(breed, "Breed retrieved successfully"));
+        .json(ResponseHelper.success(formatBreed(breed), "Breed retrieved successfully"));
     } catch (error) {
       console.error("Get breed error:", error);
       res.status(500).json(ResponseHelper.error("Internal server error"));
@@ -83,12 +110,14 @@ export class BreedController {
   // Get breeds by species
   static async getBreedsBySpecies(req: Request, res: Response): Promise<void> {
     try {
-      const { speciesName } = req.params; // Changed from speciesId to speciesName
+      const { speciesName } = req.params;
       const activeOnly = req.query.active === "true";
 
       // 1. Find the species by its name to get the ID
-      const species = await SpeciesModel.findOne({
-        name: { $regex: new RegExp(`^${speciesName}$`, "i") },
+      const species = await prisma.species.findFirst({
+        where: {
+          name: { equals: speciesName, mode: "insensitive" }
+        }
       });
 
       if (!species) {
@@ -98,18 +127,31 @@ export class BreedController {
         return;
       }
 
-      // 2. Use the found species ID to query for breeds
-      const speciesId = species._id.toString(); // Convert ObjectId to string
-      let breeds;
+      const query: any = {
+        speciesId: species.id
+      };
+
       if (activeOnly) {
-        breeds = await BreedModel.findActiveBySpecies(speciesId);
-      } else {
-        breeds = await BreedModel.findBySpecies(speciesId);
+        query.active = true;
       }
+
+      // 2. Query breeds for this species
+      const breeds = await prisma.breed.findMany({
+        where: query,
+        include: {
+          species: true
+        },
+        orderBy: [
+          { popularity: "desc" },
+          { name: "asc" }
+        ]
+      });
+
+      const formattedBreeds = breeds.map(formatBreed);
 
       res
         .status(200)
-        .json(ResponseHelper.success(breeds, "Breeds retrieved successfully"));
+        .json(ResponseHelper.success(formattedBreeds, "Breeds retrieved successfully"));
     } catch (error) {
       console.error("Get breeds by species error:", error);
       res.status(500).json(ResponseHelper.error("Internal server error"));
@@ -122,7 +164,19 @@ export class BreedController {
       const { name } = req.params;
       const { species } = req.query;
 
-      const breed = await BreedModel.findByName(name, species as string);
+      const query: any = {
+        name: name.toLowerCase()
+      };
+      if (species) {
+        query.speciesId = species as string;
+      }
+
+      const breed = await prisma.breed.findFirst({
+        where: query,
+        include: {
+          species: true
+        }
+      });
 
       if (!breed) {
         res.status(404).json(ResponseHelper.error("Breed not found"));
@@ -131,7 +185,7 @@ export class BreedController {
 
       res
         .status(200)
-        .json(ResponseHelper.success(breed, "Breed retrieved successfully"));
+        .json(ResponseHelper.success(formatBreed(breed), "Breed retrieved successfully"));
     } catch (error) {
       console.error("Get breed by name error:", error);
       res.status(500).json(ResponseHelper.error("Internal server error"));
@@ -153,17 +207,21 @@ export class BreedController {
       }
 
       // Verify species exists
-      const species = await SpeciesModel.findById(value.species);
+      const species = await prisma.species.findUnique({
+        where: { id: value.species }
+      });
       if (!species) {
         res.status(400).json(ResponseHelper.error("Invalid species ID"));
         return;
       }
 
       // Check if breed already exists for this species
-      const existingBreed = await BreedModel.findByName(
-        value.name,
-        value.species
-      );
+      const existingBreed = await prisma.breed.findFirst({
+        where: {
+          name: value.name.toLowerCase(),
+          speciesId: value.species
+        }
+      });
       if (existingBreed) {
         res
           .status(409)
@@ -175,17 +233,24 @@ export class BreedController {
         return;
       }
 
-      const breed = new BreedModel(value);
-      await breed.save();
-
-      const populatedBreed = await BreedModel.findById(breed._id).populate(
-        "species"
-      );
+      const breed = await prisma.breed.create({
+        data: {
+          name: value.name.toLowerCase(),
+          speciesId: value.species,
+          speciesName: value.speciesName,
+          description: value.description || "",
+          characteristics: value.characteristics || [],
+          active: value.active,
+        },
+        include: {
+          species: true
+        }
+      });
 
       res
         .status(201)
         .json(
-          ResponseHelper.success(populatedBreed, "Breed created successfully")
+          ResponseHelper.success(formatBreed(breed), "Breed created successfully")
         );
     } catch (error) {
       console.error("Create breed error:", error);
@@ -211,27 +276,39 @@ export class BreedController {
 
       // Verify species exists if species is being updated
       if (value.species) {
-        const species = await SpeciesModel.findById(value.species);
+        const species = await prisma.species.findUnique({
+          where: { id: value.species }
+        });
         if (!species) {
           res.status(400).json(ResponseHelper.error("Invalid species ID"));
           return;
         }
       }
 
-      const breed = await BreedModel.findByIdAndUpdate(
-        id,
-        { $set: value },
-        { new: true }
-      ).populate("species");
-
-      if (!breed) {
+      const existingBreed = await prisma.breed.findUnique({ where: { id } });
+      if (!existingBreed) {
         res.status(404).json(ResponseHelper.error("Breed not found"));
         return;
       }
 
+      const updatedBreed = await prisma.breed.update({
+        where: { id },
+        data: {
+          name: value.name.toLowerCase(),
+          speciesId: value.species,
+          speciesName: value.speciesName,
+          description: value.description || "",
+          characteristics: value.characteristics || [],
+          active: value.active,
+        },
+        include: {
+          species: true
+        }
+      });
+
       res
         .status(200)
-        .json(ResponseHelper.success(breed, "Breed updated successfully"));
+        .json(ResponseHelper.success(formatBreed(updatedBreed), "Breed updated successfully"));
     } catch (error) {
       console.error("Update breed error:", error);
       res.status(500).json(ResponseHelper.error("Internal server error"));
@@ -246,12 +323,15 @@ export class BreedController {
     try {
       const { id } = req.params;
 
-      const breed = await BreedModel.findByIdAndDelete(id);
-
-      if (!breed) {
+      const existingBreed = await prisma.breed.findUnique({ where: { id } });
+      if (!existingBreed) {
         res.status(404).json(ResponseHelper.error("Breed not found"));
         return;
       }
+
+      await prisma.breed.delete({
+        where: { id }
+      });
 
       res
         .status(200)
@@ -262,3 +342,4 @@ export class BreedController {
     }
   }
 }
+

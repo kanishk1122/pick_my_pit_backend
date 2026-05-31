@@ -1,23 +1,28 @@
-import mongoose from "mongoose";
-import { config } from "../config/index";
-import PostModel from "../model/post.model";
+import { database, prisma } from "../config/database";
 import { ImageSafetyService } from "../utils/imageSafety";
 import { redisService } from "../utils/redis";
 import { SandboxedJob } from "bullmq";
+
+function formatPost(post: any) {
+  if (!post) return null;
+  return {
+    ...post,
+    _id: post.id,
+    discription: post.discription,
+    age: post.ageValue !== null && post.ageValue !== undefined ? { value: post.ageValue, unit: post.ageUnit } : undefined,
+    formattedAge: post.ageValue !== null && post.ageValue !== undefined ? `${post.ageValue} ${post.ageValue === 1 ? post.ageUnit.slice(0, -1) : post.ageUnit} old` : "",
+  };
+}
 
 export default async function (job: SandboxedJob) {
   const { postData } = job.data;
 
   // 1. Ensure DB Connection in child process
-  if (mongoose.connection.readyState === 0) {
-    try {
-      await mongoose.connect(config.mongoUrl, {
-        maxPoolSize: 50,
-      });
-    } catch (err: any) {
-      console.error("Worker DB connection error:", err.message);
-      throw err;
-    }
+  try {
+    await database.connect();
+  } catch (err: any) {
+    console.error("Worker DB connection error:", err.message);
+    throw err;
   }
 
   // 2. Ensure Redis Connection in child process
@@ -36,13 +41,14 @@ export default async function (job: SandboxedJob) {
 
   if (containsSpam) {
     console.warn("🚫 [Worker] Post REJECTED: Spam detected", postData.title);
-    const rejectedPost = new PostModel({
-      ...postData,
-      status: "rejected",
-      meta: { rejectReason: "Automated spam detection" }
+    const rejectedPost = await prisma.post.create({
+      data: {
+        ...postData,
+        status: "rejected",
+        meta: { rejectReason: "Automated spam detection" }
+      }
     });
-    await rejectedPost.save();
-    return { success: false, reason: "spam", post: rejectedPost.toJSON() };
+    return { success: false, reason: "spam", post: formatPost(rejectedPost) };
   }
 
   // 4. Image Safety Detection
@@ -51,31 +57,35 @@ export default async function (job: SandboxedJob) {
       const isSafe = await ImageSafetyService.isImageSafe(imageUrl);
       if (!isSafe) {
         console.warn("🚫 [Worker] Post REJECTED: Unsafe image detected", imageUrl);
-        const rejectedPost = new PostModel({
-          ...postData,
-          status: "rejected",
-          meta: { rejectReason: "Automated NSFW detection" }
+        const rejectedPost = await prisma.post.create({
+          data: {
+            ...postData,
+            status: "rejected",
+            meta: { rejectReason: "Automated NSFW detection" }
+          }
         });
-        await rejectedPost.save();
-        return { success: false, reason: "nsfw", post: rejectedPost.toJSON() };
+        return { success: false, reason: "nsfw", post: formatPost(rejectedPost) };
       }
     }
   }
 
   // 5. Save Valid Post to DB
-  const post = new PostModel(postData);
-  await post.save();
-  console.log("💾 [Worker] Post saved to DB:", post._id);
+  const post = await prisma.post.create({
+    data: postData
+  });
+  console.log("💾 [Worker] Post saved to DB:", post.id);
 
   // 6. Cache in Redis
+  const formattedPost = formatPost(post);
   try {
     const cacheKey = `post:slug:${post.slug}`;
-    await redisService.set(cacheKey, post, 3600);
-    await redisService.set(`post:id:${post._id}`, post, 3600);
+    await redisService.set(cacheKey, formattedPost, 3600);
+    await redisService.set(`post:id:${post.id}`, formattedPost, 3600);
     console.log("🚀 [Worker] Post cached in Redis:", cacheKey);
   } catch (cacheErr: any) {
     console.error("❌ [Worker] Redis caching failed:", cacheErr.message);
   }
 
-  return { success: true, post: post.toJSON() };
+  return { success: true, post: formattedPost };
 }
+

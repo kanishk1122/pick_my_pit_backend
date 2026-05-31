@@ -1,7 +1,29 @@
 import { Request, Response } from "express";
-import { AuthenticatedRequest, authMiddleware } from "../middleware/auth.middleware";
-import UserModel from "../model/user.model";
+import { AuthenticatedRequest } from "../middleware/auth.middleware";
+import { prisma } from "../config/database";
 import { ResponseHelper } from "../helper/utils";
+
+function formatUser(user: any) {
+  if (!user) return null;
+  const formatted = {
+    ...user,
+    _id: user.id,
+  };
+  delete formatted.password;
+  delete formatted.sessionToken;
+  delete formatted.emailConfirmToken;
+  if (formatted.addresses) {
+    formatted.addresses = formatted.addresses.map((addr: any) => ({
+      ...addr,
+      _id: addr.id,
+      location: {
+        type: "Point",
+        coordinates: [addr.longitude, addr.latitude]
+      }
+    }));
+  }
+  return formatted;
+}
 
 export class UserController {
   // Get all users (Admin only)
@@ -14,19 +36,20 @@ export class UserController {
       const limit = parseInt(req.query.limit as string) || 10;
       const skip = (page - 1) * limit;
 
-      const users = await UserModel.find()
-        .select("-password -sessionToken -emailConfirmToken")
-        .skip(skip)
-        .limit(limit)
-        .sort({ createdAt: -1 });
+      const users = await prisma.user.findMany({
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit
+      });
 
-      const total = await UserModel.countDocuments();
+      const total = await prisma.user.count();
+      const formattedUsers = users.map(formatUser);
 
       res
         .status(200)
         .json(
           ResponseHelper.paginated(
-            users,
+            formattedUsers,
             total,
             page,
             limit,
@@ -47,9 +70,12 @@ export class UserController {
     try {
       const { id } = req.params;
 
-      const user = await UserModel.findById(id)
-        .select("-password -sessionToken -emailConfirmToken")
-        .populate("addresses");
+      const user = await prisma.user.findUnique({
+        where: { id },
+        include: {
+          addresses: true
+        }
+      });
 
       if (!user) {
         res.status(404).json(ResponseHelper.error("User not found"));
@@ -58,7 +84,7 @@ export class UserController {
 
       res
         .status(200)
-        .json(ResponseHelper.success(user, "User retrieved successfully"));
+        .json(ResponseHelper.success(formatUser(user), "User retrieved successfully"));
     } catch (error) {
       console.error("Get user error:", error);
       res.status(500).json(ResponseHelper.error("Internal server error"));
@@ -71,28 +97,29 @@ export class UserController {
     res: Response
   ): Promise<void> {
     try {
-      const updates = req.body;
+      if (!req.user) {
+        res.status(401).json(ResponseHelper.error("User not authenticated"));
+        return;
+      }
+
+      const updates = { ...req.body };
 
       // Remove sensitive fields from updates
       delete updates.password;
       delete updates.role;
       delete updates.emailConfirm;
       delete updates.sessionToken;
+      delete updates.id;
+      delete updates._id;
 
-      const user = await UserModel.findByIdAndUpdate(
-        req.user.id,
-        { $set: updates },
-        { new: true, select: "-password -sessionToken -emailConfirmToken" }
-      );
-
-      if (!user) {
-        res.status(404).json(ResponseHelper.error("User not found"));
-        return;
-      }
+      const user = await prisma.user.update({
+        where: { id: req.user.id },
+        data: updates
+      });
 
       res
         .status(200)
-        .json(ResponseHelper.success(user, "User updated successfully"));
+        .json(ResponseHelper.success(formatUser(user), "User updated successfully"));
     } catch (error) {
       console.error("Update user error:", error);
       res.status(500).json(ResponseHelper.error("Internal server error"));
@@ -107,12 +134,9 @@ export class UserController {
     try {
       const { id } = req.params;
 
-      const user = await UserModel.findByIdAndDelete(id);
-
-      if (!user) {
-        res.status(404).json(ResponseHelper.error("User not found"));
-        return;
-      }
+      const user = await prisma.user.delete({
+        where: { id }
+      });
 
       res
         .status(200)
@@ -134,9 +158,12 @@ export class UserController {
         return;
       }
 
-      const user = await UserModel.findById(req.user.id)
-        .select("-password -sessionToken -emailConfirmToken")
-        .populate("addresses");
+      const user = await prisma.user.findUnique({
+        where: { id: req.user.id },
+        include: {
+          addresses: true
+        }
+      });
 
       if (!user) {
         res.status(404).json(ResponseHelper.error("User not found"));
@@ -145,10 +172,11 @@ export class UserController {
 
       res
         .status(200)
-        .json(ResponseHelper.success(user, "Profile retrieved successfully"));
+        .json(ResponseHelper.success(formatUser(user), "Profile retrieved successfully"));
     } catch (error) {
       console.error("Get profile error:", error);
       res.status(500).json(ResponseHelper.error("Internal server error"));
     }
   }
 }
+

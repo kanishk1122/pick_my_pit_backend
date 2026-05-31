@@ -1,0 +1,28 @@
+model Post {
+  id           String   @id @default(uuid())
+  ownerId      String
+  owner        User     @relation("UserPosts", fields: [ownerId], references: [id], onDelete: Cascade)
+  images       Json?    // Array of images or other types
+  title        String
+  slug         String   @unique
+  discription  String?  @db.Text
+  date         DateTime @default(now())
+  amount       Float    @default(0)
+  type         String   @default("free") // "free" | "paid"
+  category     String?
+  species      String?
+  speciesSlug  String?
+  gender       String?  // "male" | "female"
+  breedSlug    String?
+  addressId    String?
+  address      Address? @relation(fields: [addressId], references: [id], onDelete: SetNull)
+  ageValue     Int?
+  ageUnit      String?  @default("months") // "days" | "weeks" | "months" | "years"
+  status       String   @default("pending") // "active" | "sold" | "adopted" | "pending" | "rejected" | "banned"
+  meta         Json?    // Mixed metadata
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  chats        Chat[]
+  messages     Message[]
+}

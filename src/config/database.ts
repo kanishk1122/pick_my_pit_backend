@@ -1,5 +1,10 @@
-import mongoose from "mongoose";
+import { PrismaClient } from "../generated/prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
 import { config } from "./index";
+
+let prisma: PrismaClient;
+let pool: Pool;
 
 class Database {
   private static instance: Database;
@@ -16,19 +21,30 @@ class Database {
 
   public async connect(): Promise<void> {
     if (this.isConnected) {
-      console.log("Already connected to MongoDB");
+      console.log("Already connected to PostgreSQL");
       return;
     }
 
     try {
-      await mongoose.connect(config.mongoUrl, {
-        maxPoolSize: 100,
-        minPoolSize: 10,
+      const isWorker = process.argv.some(arg => arg.includes("postProcessor"));
+      const maxPoolSize = isWorker ? 2 : parseInt(process.env.DB_POOL_MAX || "30", 10);
+
+      pool = new Pool({
+        connectionString: config.mongoUrl,
+        max: maxPoolSize,
+        idleTimeoutMillis: 30000,
       });
-      console.log("Connected to MongoDB");
+
+      const adapter = new PrismaPg(pool);
+      prisma = new PrismaClient({ adapter });
+
+      // Test connection and enable PostGIS extension
+      await prisma.$executeRaw`CREATE EXTENSION IF NOT EXISTS postgis;`;
+
+      console.log("Connected to PostgreSQL via Prisma");
       this.isConnected = true;
     } catch (error) {
-      console.error("MongoDB connection error:", error);
+      console.error("PostgreSQL connection error:", error);
       process.exit(1);
     }
   }
@@ -39,11 +55,12 @@ class Database {
     }
 
     try {
-      await mongoose.disconnect();
+      await prisma.$disconnect();
+      await pool.end();
       this.isConnected = false;
-      console.log("Disconnected from MongoDB");
+      console.log("Disconnected from PostgreSQL");
     } catch (error) {
-      console.error("Error disconnecting from MongoDB:", error);
+      console.error("Error disconnecting from PostgreSQL:", error);
     }
   }
 
@@ -53,3 +70,5 @@ class Database {
 }
 
 export const database = Database.getInstance();
+export { prisma };
+
