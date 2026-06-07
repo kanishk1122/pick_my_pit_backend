@@ -1191,6 +1191,7 @@ export const PostScalarFieldEnum = {
   date: 'date',
   amount: 'amount',
   type: 'type',
+  isNegotiable: 'isNegotiable',
   category: 'category',
   species: 'species',
   speciesSlug: 'speciesSlug',

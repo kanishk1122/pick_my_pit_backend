@@ -9,6 +9,7 @@ model Post {
   date         DateTime @default(now())
   amount       Float    @default(0)
   type         String   @default("free") // "free" | "paid"
+  isNegotiable Boolean  @default(false)
   category     String?
   species      String?
   speciesSlug  String?

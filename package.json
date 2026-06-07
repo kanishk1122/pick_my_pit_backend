@@ -14,7 +14,9 @@
     "migration:revert": "typeorm migration:revert -d src/config/data-source.ts",
     "migrate": "ts-node --esm src/utils/run-migrations.ts",
     "migrate:create": "typeorm migration:create",
-    "fix-migration": "ts-node --esm src/utils/fix-migrations.ts"
+    "fix-migration": "ts-node --esm src/utils/fix-migrations.ts",
+    "seed-admin": "ts-node src/scripts/seed-admin.ts",
+    "seed-posts": "ts-node src/scripts/seed-posts.ts"
   },
   "keywords": [],
   "author": "",

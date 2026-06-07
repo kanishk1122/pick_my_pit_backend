@@ -45,6 +45,7 @@ export type PostMinAggregateOutputType = {
   date: Date | null
   amount: number | null
   type: string | null
+  isNegotiable: boolean | null
   category: string | null
   species: string | null
   speciesSlug: string | null
@@ -67,6 +68,7 @@ export type PostMaxAggregateOutputType = {
   date: Date | null
   amount: number | null
   type: string | null
+  isNegotiable: boolean | null
   category: string | null
   species: string | null
   speciesSlug: string | null
@@ -90,6 +92,7 @@ export type PostCountAggregateOutputType = {
   date: number
   amount: number
   type: number
+  isNegotiable: number
   category: number
   species: number
   speciesSlug: number
@@ -125,6 +128,7 @@ export type PostMinAggregateInputType = {
   date?: true
   amount?: true
   type?: true
+  isNegotiable?: true
   category?: true
   species?: true
   speciesSlug?: true
@@ -147,6 +151,7 @@ export type PostMaxAggregateInputType = {
   date?: true
   amount?: true
   type?: true
+  isNegotiable?: true
   category?: true
   species?: true
   speciesSlug?: true
@@ -170,6 +175,7 @@ export type PostCountAggregateInputType = {
   date?: true
   amount?: true
   type?: true
+  isNegotiable?: true
   category?: true
   species?: true
   speciesSlug?: true
@@ -281,6 +287,7 @@ export type PostGroupByOutputType = {
   date: Date
   amount: number
   type: string
+  isNegotiable: boolean
   category: string | null
   species: string | null
   speciesSlug: string | null
@@ -328,6 +335,7 @@ export type PostWhereInput = {
   date?: Prisma.DateTimeFilter<"Post"> | Date | string
   amount?: Prisma.FloatFilter<"Post"> | number
   type?: Prisma.StringFilter<"Post"> | string
+  isNegotiable?: Prisma.BoolFilter<"Post"> | boolean
   category?: Prisma.StringNullableFilter<"Post"> | string | null
   species?: Prisma.StringNullableFilter<"Post"> | string | null
   speciesSlug?: Prisma.StringNullableFilter<"Post"> | string | null
@@ -356,6 +364,7 @@ export type PostOrderByWithRelationInput = {
   date?: Prisma.SortOrder
   amount?: Prisma.SortOrder
   type?: Prisma.SortOrder
+  isNegotiable?: Prisma.SortOrder
   category?: Prisma.SortOrderInput | Prisma.SortOrder
   species?: Prisma.SortOrderInput | Prisma.SortOrder
   speciesSlug?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -387,6 +396,7 @@ export type PostWhereUniqueInput = Prisma.AtLeast<{
   date?: Prisma.DateTimeFilter<"Post"> | Date | string
   amount?: Prisma.FloatFilter<"Post"> | number
   type?: Prisma.StringFilter<"Post"> | string
+  isNegotiable?: Prisma.BoolFilter<"Post"> | boolean
   category?: Prisma.StringNullableFilter<"Post"> | string | null
   species?: Prisma.StringNullableFilter<"Post"> | string | null
   speciesSlug?: Prisma.StringNullableFilter<"Post"> | string | null
@@ -415,6 +425,7 @@ export type PostOrderByWithAggregationInput = {
   date?: Prisma.SortOrder
   amount?: Prisma.SortOrder
   type?: Prisma.SortOrder
+  isNegotiable?: Prisma.SortOrder
   category?: Prisma.SortOrderInput | Prisma.SortOrder
   species?: Prisma.SortOrderInput | Prisma.SortOrder
   speciesSlug?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -447,6 +458,7 @@ export type PostScalarWhereWithAggregatesInput = {
   date?: Prisma.DateTimeWithAggregatesFilter<"Post"> | Date | string
   amount?: Prisma.FloatWithAggregatesFilter<"Post"> | number
   type?: Prisma.StringWithAggregatesFilter<"Post"> | string
+  isNegotiable?: Prisma.BoolWithAggregatesFilter<"Post"> | boolean
   category?: Prisma.StringNullableWithAggregatesFilter<"Post"> | string | null
   species?: Prisma.StringNullableWithAggregatesFilter<"Post"> | string | null
   speciesSlug?: Prisma.StringNullableWithAggregatesFilter<"Post"> | string | null
@@ -470,6 +482,7 @@ export type PostCreateInput = {
   date?: Date | string
   amount?: number
   type?: string
+  isNegotiable?: boolean
   category?: string | null
   species?: string | null
   speciesSlug?: string | null
@@ -497,6 +510,7 @@ export type PostUncheckedCreateInput = {
   date?: Date | string
   amount?: number
   type?: string
+  isNegotiable?: boolean
   category?: string | null
   species?: string | null
   speciesSlug?: string | null
@@ -522,6 +536,7 @@ export type PostUpdateInput = {
   date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   amount?: Prisma.FloatFieldUpdateOperationsInput | number
   type?: Prisma.StringFieldUpdateOperationsInput | string
+  isNegotiable?: Prisma.BoolFieldUpdateOperationsInput | boolean
   category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   species?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   speciesSlug?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -549,6 +564,7 @@ export type PostUncheckedUpdateInput = {
   date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   amount?: Prisma.FloatFieldUpdateOperationsInput | number
   type?: Prisma.StringFieldUpdateOperationsInput | string
+  isNegotiable?: Prisma.BoolFieldUpdateOperationsInput | boolean
   category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   species?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   speciesSlug?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -575,6 +591,7 @@ export type PostCreateManyInput = {
   date?: Date | string
   amount?: number
   type?: string
+  isNegotiable?: boolean
   category?: string | null
   species?: string | null
   speciesSlug?: string | null
@@ -598,6 +615,7 @@ export type PostUpdateManyMutationInput = {
   date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   amount?: Prisma.FloatFieldUpdateOperationsInput | number
   type?: Prisma.StringFieldUpdateOperationsInput | string
+  isNegotiable?: Prisma.BoolFieldUpdateOperationsInput | boolean
   category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   species?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   speciesSlug?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -621,6 +639,7 @@ export type PostUncheckedUpdateManyInput = {
   date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   amount?: Prisma.FloatFieldUpdateOperationsInput | number
   type?: Prisma.StringFieldUpdateOperationsInput | string
+  isNegotiable?: Prisma.BoolFieldUpdateOperationsInput | boolean
   category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   species?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   speciesSlug?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -650,6 +669,7 @@ export type PostCountOrderByAggregateInput = {
   date?: Prisma.SortOrder
   amount?: Prisma.SortOrder
   type?: Prisma.SortOrder
+  isNegotiable?: Prisma.SortOrder
   category?: Prisma.SortOrder
   species?: Prisma.SortOrder
   speciesSlug?: Prisma.SortOrder
@@ -678,6 +698,7 @@ export type PostMaxOrderByAggregateInput = {
   date?: Prisma.SortOrder
   amount?: Prisma.SortOrder
   type?: Prisma.SortOrder
+  isNegotiable?: Prisma.SortOrder
   category?: Prisma.SortOrder
   species?: Prisma.SortOrder
   speciesSlug?: Prisma.SortOrder
@@ -700,6 +721,7 @@ export type PostMinOrderByAggregateInput = {
   date?: Prisma.SortOrder
   amount?: Prisma.SortOrder
   type?: Prisma.SortOrder
+  isNegotiable?: Prisma.SortOrder
   category?: Prisma.SortOrder
   species?: Prisma.SortOrder
   speciesSlug?: Prisma.SortOrder
@@ -869,6 +891,7 @@ export type PostCreateWithoutChatsInput = {
   date?: Date | string
   amount?: number
   type?: string
+  isNegotiable?: boolean
   category?: string | null
   species?: string | null
   speciesSlug?: string | null
@@ -895,6 +918,7 @@ export type PostUncheckedCreateWithoutChatsInput = {
   date?: Date | string
   amount?: number
   type?: string
+  isNegotiable?: boolean
   category?: string | null
   species?: string | null
   speciesSlug?: string | null
@@ -935,6 +959,7 @@ export type PostUpdateWithoutChatsInput = {
   date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   amount?: Prisma.FloatFieldUpdateOperationsInput | number
   type?: Prisma.StringFieldUpdateOperationsInput | string
+  isNegotiable?: Prisma.BoolFieldUpdateOperationsInput | boolean
   category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   species?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   speciesSlug?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -961,6 +986,7 @@ export type PostUncheckedUpdateWithoutChatsInput = {
   date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   amount?: Prisma.FloatFieldUpdateOperationsInput | number
   type?: Prisma.StringFieldUpdateOperationsInput | string
+  isNegotiable?: Prisma.BoolFieldUpdateOperationsInput | boolean
   category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   species?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   speciesSlug?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -985,6 +1011,7 @@ export type PostCreateWithoutMessagesInput = {
   date?: Date | string
   amount?: number
   type?: string
+  isNegotiable?: boolean
   category?: string | null
   species?: string | null
   speciesSlug?: string | null
@@ -1011,6 +1038,7 @@ export type PostUncheckedCreateWithoutMessagesInput = {
   date?: Date | string
   amount?: number
   type?: string
+  isNegotiable?: boolean
   category?: string | null
   species?: string | null
   speciesSlug?: string | null
@@ -1051,6 +1079,7 @@ export type PostUpdateWithoutMessagesInput = {
   date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   amount?: Prisma.FloatFieldUpdateOperationsInput | number
   type?: Prisma.StringFieldUpdateOperationsInput | string
+  isNegotiable?: Prisma.BoolFieldUpdateOperationsInput | boolean
   category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   species?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   speciesSlug?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1077,6 +1106,7 @@ export type PostUncheckedUpdateWithoutMessagesInput = {
   date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   amount?: Prisma.FloatFieldUpdateOperationsInput | number
   type?: Prisma.StringFieldUpdateOperationsInput | string
+  isNegotiable?: Prisma.BoolFieldUpdateOperationsInput | boolean
   category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   species?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   speciesSlug?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1101,6 +1131,7 @@ export type PostCreateWithoutOwnerInput = {
   date?: Date | string
   amount?: number
   type?: string
+  isNegotiable?: boolean
   category?: string | null
   species?: string | null
   speciesSlug?: string | null
@@ -1126,6 +1157,7 @@ export type PostUncheckedCreateWithoutOwnerInput = {
   date?: Date | string
   amount?: number
   type?: string
+  isNegotiable?: boolean
   category?: string | null
   species?: string | null
   speciesSlug?: string | null
@@ -1181,6 +1213,7 @@ export type PostScalarWhereInput = {
   date?: Prisma.DateTimeFilter<"Post"> | Date | string
   amount?: Prisma.FloatFilter<"Post"> | number
   type?: Prisma.StringFilter<"Post"> | string
+  isNegotiable?: Prisma.BoolFilter<"Post"> | boolean
   category?: Prisma.StringNullableFilter<"Post"> | string | null
   species?: Prisma.StringNullableFilter<"Post"> | string | null
   speciesSlug?: Prisma.StringNullableFilter<"Post"> | string | null
@@ -1204,6 +1237,7 @@ export type PostCreateWithoutAddressInput = {
   date?: Date | string
   amount?: number
   type?: string
+  isNegotiable?: boolean
   category?: string | null
   species?: string | null
   speciesSlug?: string | null
@@ -1230,6 +1264,7 @@ export type PostUncheckedCreateWithoutAddressInput = {
   date?: Date | string
   amount?: number
   type?: string
+  isNegotiable?: boolean
   category?: string | null
   species?: string | null
   speciesSlug?: string | null
@@ -1280,6 +1315,7 @@ export type PostCreateManyOwnerInput = {
   date?: Date | string
   amount?: number
   type?: string
+  isNegotiable?: boolean
   category?: string | null
   species?: string | null
   speciesSlug?: string | null
@@ -1303,6 +1339,7 @@ export type PostUpdateWithoutOwnerInput = {
   date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   amount?: Prisma.FloatFieldUpdateOperationsInput | number
   type?: Prisma.StringFieldUpdateOperationsInput | string
+  isNegotiable?: Prisma.BoolFieldUpdateOperationsInput | boolean
   category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   species?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   speciesSlug?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1328,6 +1365,7 @@ export type PostUncheckedUpdateWithoutOwnerInput = {
   date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   amount?: Prisma.FloatFieldUpdateOperationsInput | number
   type?: Prisma.StringFieldUpdateOperationsInput | string
+  isNegotiable?: Prisma.BoolFieldUpdateOperationsInput | boolean
   category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   species?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   speciesSlug?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1353,6 +1391,7 @@ export type PostUncheckedUpdateManyWithoutOwnerInput = {
   date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   amount?: Prisma.FloatFieldUpdateOperationsInput | number
   type?: Prisma.StringFieldUpdateOperationsInput | string
+  isNegotiable?: Prisma.BoolFieldUpdateOperationsInput | boolean
   category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   species?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   speciesSlug?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1377,6 +1416,7 @@ export type PostCreateManyAddressInput = {
   date?: Date | string
   amount?: number
   type?: string
+  isNegotiable?: boolean
   category?: string | null
   species?: string | null
   speciesSlug?: string | null
@@ -1399,6 +1439,7 @@ export type PostUpdateWithoutAddressInput = {
   date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   amount?: Prisma.FloatFieldUpdateOperationsInput | number
   type?: Prisma.StringFieldUpdateOperationsInput | string
+  isNegotiable?: Prisma.BoolFieldUpdateOperationsInput | boolean
   category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   species?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   speciesSlug?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1425,6 +1466,7 @@ export type PostUncheckedUpdateWithoutAddressInput = {
   date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   amount?: Prisma.FloatFieldUpdateOperationsInput | number
   type?: Prisma.StringFieldUpdateOperationsInput | string
+  isNegotiable?: Prisma.BoolFieldUpdateOperationsInput | boolean
   category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   species?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   speciesSlug?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1450,6 +1492,7 @@ export type PostUncheckedUpdateManyWithoutAddressInput = {
   date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   amount?: Prisma.FloatFieldUpdateOperationsInput | number
   type?: Prisma.StringFieldUpdateOperationsInput | string
+  isNegotiable?: Prisma.BoolFieldUpdateOperationsInput | boolean
   category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   species?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   speciesSlug?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1513,6 +1556,7 @@ export type PostSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   date?: boolean
   amount?: boolean
   type?: boolean
+  isNegotiable?: boolean
   category?: boolean
   species?: boolean
   speciesSlug?: boolean
@@ -1542,6 +1586,7 @@ export type PostSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   date?: boolean
   amount?: boolean
   type?: boolean
+  isNegotiable?: boolean
   category?: boolean
   species?: boolean
   speciesSlug?: boolean
@@ -1568,6 +1613,7 @@ export type PostSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   date?: boolean
   amount?: boolean
   type?: boolean
+  isNegotiable?: boolean
   category?: boolean
   species?: boolean
   speciesSlug?: boolean
@@ -1594,6 +1640,7 @@ export type PostSelectScalar = {
   date?: boolean
   amount?: boolean
   type?: boolean
+  isNegotiable?: boolean
   category?: boolean
   species?: boolean
   speciesSlug?: boolean
@@ -1608,7 +1655,7 @@ export type PostSelectScalar = {
   updatedAt?: boolean
 }
 
-export type PostOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "ownerId" | "images" | "title" | "slug" | "discription" | "date" | "amount" | "type" | "category" | "species" | "speciesSlug" | "gender" | "breedSlug" | "addressId" | "ageValue" | "ageUnit" | "status" | "meta" | "createdAt" | "updatedAt", ExtArgs["result"]["post"]>
+export type PostOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "ownerId" | "images" | "title" | "slug" | "discription" | "date" | "amount" | "type" | "isNegotiable" | "category" | "species" | "speciesSlug" | "gender" | "breedSlug" | "addressId" | "ageValue" | "ageUnit" | "status" | "meta" | "createdAt" | "updatedAt", ExtArgs["result"]["post"]>
 export type PostInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   address?: boolean | Prisma.Post$addressArgs<ExtArgs>
@@ -1643,6 +1690,7 @@ export type $PostPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     date: Date
     amount: number
     type: string
+    isNegotiable: boolean
     category: string | null
     species: string | null
     speciesSlug: string | null
@@ -2091,6 +2139,7 @@ export interface PostFieldRefs {
   readonly date: Prisma.FieldRef<"Post", 'DateTime'>
   readonly amount: Prisma.FieldRef<"Post", 'Float'>
   readonly type: Prisma.FieldRef<"Post", 'String'>
+  readonly isNegotiable: Prisma.FieldRef<"Post", 'Boolean'>
   readonly category: Prisma.FieldRef<"Post", 'String'>
   readonly species: Prisma.FieldRef<"Post", 'String'>
   readonly speciesSlug: Prisma.FieldRef<"Post", 'String'>

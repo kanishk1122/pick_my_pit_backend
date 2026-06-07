@@ -248,6 +248,7 @@ export class AuthController {
       const admin = await prisma.admin.findUnique({
         where: { email: email.toLowerCase() }
       });
+
       if (!admin) {
         res.status(401).json({
           success: false,
