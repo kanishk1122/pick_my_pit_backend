@@ -1,0 +1,175 @@
+[
+  {
+    "name": "dog",
+    "displayName": "Dog",
+    "icon": "🐶",
+    "description": "Man's best friend. Loyal, active, and highly social companions with incredible genetic diversity.",
+    "breeds": [
+      { "name": "Labrador Retriever", "description": "Friendly, active, and outgoing." },
+      { "name": "German Shepherd", "description": "Intelligent, loyal, and versatile working dog." },
+      { "name": "Golden Retriever", "description": "Intelligent, friendly, and devoted." },
+      { "name": "French Bulldog", "description": "Playful, adaptable, and smart companion." },
+      { "name": "Beagle", "description": "Curious, friendly, and merry hound." },
+      { "name": "Poodle", "description": "Proud, active, and very smart." },
+      { "name": "Rottweiler", "description": "Loyal, loving, and confident guardian." },
+      { "name": "Siberian Husky", "description": "Friendly, gentle, and outgoing sled dog." },
+      { "name": "Pug", "description": "Charming, mischievous, and loving." },
+      { "name": "Chihuahua", "description": "Graceful, alert, and swift-moving compact dog." },
+      { "name": "Boxer", "description": "Fun-loving, active, and extremely loyal." },
+      { "name": "Pomeranian", "description": "Extravagant, lively, and intelligent." },
+      { "name": "Shih Tzu", "description": "Affectionate, playful, and outgoing." },
+      { "name": "Doberman Pinscher", "description": "Fearless, loyal, and highly alert protector." },
+      { "name": "Great Dane", "description": "Friendly, patient, and dependable gentle giant." },
+      { "name": "Border Collie", "description": "Remarkably smart, energetic, and agile workaholic." },
+      { "name": "Dachshund", "description": "Clever, lively, and courageous scent hound with a long silhouette." },
+      { "name": "Australian Shepherd", "description": "Smart, work-oriented, and exuberant herding companion." },
+      { "name": "Yorkshire Terrier", "description": "Feisty, brave, and physically compact tomboy of a toy dog." },
+      { "name": "Cavalier King Charles Spaniel", "description": "Affectionate, gentle, and graceful lapdog." },
+      { "name": "Shetland Sheepdog", "description": "Bright, playful, and highly trainable herder." },
+      { "name": "Boston Terrier", "description": "Friendly, lively, and well-mannered \"American Gentleman.\"" },
+      { "name": "Cane Corso", "description": "Intelligent, powerful, and intensely protective heavy guardian." },
+      { "name": "Maltese", "description": "Gentle, playful, and deeply affectionate with a silky coat." }
+    ]
+  },
+  {
+    "name": "cat",
+    "displayName": "Cat",
+    "icon": "🐱",
+    "description": "Independent, clean, and affectionate house pets with highly distinct personalities and hunting instincts.",
+    "breeds": [
+      { "name": "Persian Cat", "description": "Quiet, sweet, and elegant." },
+      { "name": "Maine Coon", "description": "Large, friendly, and playful gentle giant." },
+      { "name": "Siamese Cat", "description": "Vocal, social, and affectionate." },
+      { "name": "Ragdoll", "description": "Placid, sweet-tempered, and fluffy." },
+      { "name": "British Shorthair", "description": "Easygoing, calm, and sturdy." },
+      { "name": "Bengal Cat", "description": "Wild-looking, highly active, and smart." },
+      { "name": "Sphynx Cat", "description": "Hairless, energetic, and highly social." },
+      { "name": "Abyssinian Cat", "description": "Curious, highly active, and playful." },
+      { "name": "Scottish Fold", "description": "Known for folded ears, sweet and gentle." },
+      { "name": "Birman", "description": "Gentle, quiet, loving, and companionable." },
+      { "name": "Russian Blue", "description": "Gentle, quiet, and deeply reserved with a striking silver-blue coat." },
+      { "name": "Devon Rex", "description": "Pixie-like appearance, mischievous, and highly people-oriented." },
+      { "name": "Burmese", "description": "People-oriented, playful, and vocal lap cat." },
+      { "name": "American Shorthair", "description": "Adaptable, friendly, and excellent hunting family pet." },
+      { "name": "Norwegian Forest Cat", "description": "Large, rugged, and heavily-furred climber." }
+    ]
+  },
+  {
+    "name": "bird",
+    "displayName": "Bird",
+    "icon": "🐦",
+    "description": "Cheerfully vocal, highly intelligent, and beautiful feathered friends.",
+    "breeds": [
+      { "name": "Budgerigar (Budgie)", "description": "Small, friendly, and easy to train." },
+      { "name": "Cockatiel", "description": "Crested, social, and whistle-loving." },
+      { "name": "Lovebird", "description": "Affectionate, active, and colorful." },
+      { "name": "Canary", "description": "Melodious singers, solitary and easy to care for." },
+      { "name": "African Grey Parrot", "description": "Highly intelligent and excellent talkers." },
+      { "name": "Macaw", "description": "Large, vibrant, loud, and long-lived." },
+      { "name": "Cockatoo", "description": "Affectionate, intelligent, and highly social." },
+      { "name": "Finch", "description": "Small, active, and pleasant to watch." },
+      { "name": "Green-Cheeked Conure", "description": "Playful, affectionate, and full of big parrot personality in a small body." },
+      { "name": "Eclectus Parrot", "description": "Strikingly dimorphic colors, calm, and highly intelligent." },
+      { "name": "Ringneck Parakeet", "description": "Clever, independent, and capable of a huge vocabulary." },
+      { "name": "Pacific Parrotlet", "description": "Feisty, tiny, and highly curious pocket-sized parrot." }
+    ]
+  },
+  {
+    "name": "rabbit",
+    "displayName": "Rabbit",
+    "icon": "🐰",
+    "description": "Gentle, quiet, and fluffy long-eared pets that thrive on routine and social interaction.",
+    "breeds": [
+      { "name": "Holland Lop", "description": "Cute floppy ears, sweet, and compact." },
+      { "name": "Netherland Dwarf", "description": "Tiny size, energetic, and popular." },
+      { "name": "Lionhead Rabbit", "description": "Fluffy mane, friendly, and playful." },
+      { "name": "Rex Rabbit", "description": "Velvet-like coat, calm, and affectionate." },
+      { "name": "Flemish Giant", "description": "Largest rabbit breed, docile and friendly." },
+      { "name": "Mini Lop", "description": "Sweet nature, compact, and cuddly." },
+      { "name": "Angora", "description": "Famous for long, soft wool; needs regular grooming." },
+      { "name": "New Zealand Rabbit", "description": "Large, versatile, calm, and excellent disposition." },
+      { "name": "English Spot", "description": "Curious, highly energetic, with distinct structural spots." }
+    ]
+  },
+  {
+    "name": "fish",
+    "displayName": "Fish",
+    "icon": "🐠",
+    "description": "Peaceful, colorful, and low-maintenance aquatic life spanning freshwater and saltwater ecosystems.",
+    "breeds": [
+      { "name": "Goldfish", "description": "Classic aquarium fish, hardy and active." },
+      { "name": "Betta (Siamese Fighting Fish)", "description": "Stunning long fins, territorial and vibrant." },
+      { "name": "Guppy", "description": "Small, colorful, and very active breeders." },
+      { "name": "Neon Tetra", "description": "Bright glowing stripes, peaceful schooling fish." },
+      { "name": "Angelfish", "description": "Elegant triangular shape, majestic swimmers." },
+      { "name": "Molly", "description": "Hardy, active, and great for beginners." },
+      { "name": "Platy", "description": "Colorful, peaceful, and active fish." },
+      { "name": "Discus", "description": "Vibrant patterns, disc-shaped, requires warm water." },
+      { "name": "Koi", "description": "Large, beautiful pond fish, long-lived." },
+      { "name": "Ocellaris Clownfish", "description": "Iconic saltwater fish, hardy, symbiotically pairs with anemones." },
+      { "name": "Corydoras Catfish", "description": "Peaceful, active bottom-dwelling community scavengers." },
+      { "name": "Zebra Danio", "description": "Extremely hardy, fast-swimming striped schooling fish." },
+      { "name": "Cherry Barb", "description": "Bright red, peaceful, and dynamic additions to planted tanks." }
+    ]
+  },
+  {
+    "name": "rodent",
+    "displayName": "Rodent / Small Pet",
+    "icon": "🐹",
+    "description": "Active, small, and fascinating little pocket pets with distinct dietary and social needs.",
+    "breeds": [
+      { "name": "Syrian Hamster", "description": "Solitary, active, and nocturnal." },
+      { "name": "Dwarf Hamster", "description": "Tiny, fast-moving, and can be social." },
+      { "name": "Guinea Pig", "description": "Vocal, gentle, and loves veggies." },
+      { "name": "Chinchilla", "description": "Incredibly soft fur, active jumpers." },
+      { "name": "Ferret", "description": "Playful, energetic, and highly mischievous." },
+      { "name": "Gerbil", "description": "Active, loves burrowing, and social." },
+      { "name": "Fancy Rat", "description": "Highly intelligent, affectionate, and incredibly clean social animals." },
+      { "name": "Fancy Mouse", "description": "Tiny, fast, fascinating to watch, and busy builders." },
+      { "name": "Degu", "description": "Diurnal, social, highly communicative relative of the chinchilla." }
+    ]
+  },
+  {
+    "name": "reptile",
+    "displayName": "Reptile",
+    "icon": "🦎",
+    "description": "Exotic, quiet, and fascinating ectothermic pets ranging from lizards to snakes and chelonians.",
+    "breeds": [
+      { "name": "Bearded Dragon", "description": "Friendly, calm, and popular beginner reptile." },
+      { "name": "Leopard Gecko", "description": "Docile, small, and active at dusk." },
+      { "name": "Ball Python", "description": "Gentle, slow-moving, and easy to handle." },
+      { "name": "Red-Eared Slider Turtle", "description": "Aquatic turtle, loves basking." },
+      { "name": "Corn Snake", "description": "Docile, active explorer, great beginner snake." },
+      { "name": "Chameleon", "description": "Color-changing, delicate, and visual hunter." },
+      { "name": "Crested Gecko", "description": "Fascinating eyelashes, requires no specialized lighting, highly arboreal." },
+      { "name": "Russian Tortoise", "description": "Small, hardy, active burrower, and long-lived herbivore." },
+      { "name": "Blue-Tongued Skink", "description": "Intelligent, ground-dwelling lizard with a prominent blue tongue." }
+    ]
+  },
+  {
+    "name": "amphibian",
+    "displayName": "Amphibian",
+    "icon": "🐸",
+    "description": "Semi-aquatic or fully aquatic creatures valued for their unique lifecycles and highly permeable skin.",
+    "breeds": [
+      { "name": "Axolotl", "description": "Fully aquatic paedomorphic salamander with striking external gills." },
+      { "name": "White's Tree Frog", "description": "Placid, smiling appearance, hardy, and very easy to care for." },
+      { "name": "Pacman Frog", "description": "Terrestrial ambush predator known for its massive round body and appetite." },
+      { "name": "Dart Frog", "description": "Vibrantly colored, diurnal, and fascinating to observe in bioactive terrariums." },
+      { "name": "Tiger Salamander", "description": "Large, stocky land salamander with bold stripes and responsive nature." }
+    ]
+  },
+  {
+    "name": "invertebrate",
+    "displayName": "Invertebrate / Exotic Bug",
+    "icon": "🕷️",
+    "description": "Fascinating, low-maintenance, and structurally unique non-vertebrate pets.",
+    "breeds": [
+      { "name": "Chilean Rose Hair Tarantula", "description": "Docile, slow-moving, and very long-lived beginner arachnid." },
+      { "name": "Caribbean Hermit Crab", "description": "Social land crab that requires high humidity and shells to swap." },
+      { "name": "Madagascar Hissing Cockroach", "description": "Large, flightless, clean, and handles easily while emitting unique sounds." },
+      { "name": "Emperor Scorpion", "description": "Imposing size, fluoresces under UV light, relatively docile." },
+      { "name": "Giant African Millipede", "description": "Slow, docile detritivore that processes decaying wood and leaves safely." }
+    ]
+  }
+]
