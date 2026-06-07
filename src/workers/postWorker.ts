@@ -2,6 +2,7 @@ import { Worker } from "bullmq";
 import path from "path";
 import { config } from "../config/index";
 import { socketService } from "../utils/socket";
+import postProcessor from "./postProcessor";
 
 // Helper to parse Redis URL
 const parseRedisUrl = (url: string) => {
@@ -20,18 +21,12 @@ const parseRedisUrl = (url: string) => {
 
 const connection = parseRedisUrl(config.redisUrl);
 
-// Resolve processor path dynamically based on runtime environment (ts-node vs node)
-const isTsNode = process.argv.some(arg => arg.includes("ts-node") || arg.includes("ts-node-dev") || arg.includes("tsconfig-paths"));
-const processorExtension = isTsNode ? "ts" : "js";
-const processorPath = path.join(__dirname, `postProcessor.${processorExtension}`);
-
 export const startPostWorker = () => {
-  console.log(`🔌 Starting BullMQ Worker with processor: ${processorPath}`);
+  console.log(`🔌 Starting BullMQ Worker inline`);
   
-  const worker = new Worker("post-creation", processorPath, {
+  const worker = new Worker("post-creation", postProcessor, {
     connection,
     concurrency: 50, // Allow high concurrent processing of post safety checks
-    useWorkerThreads: false // uses Node child_process fork (separate process)
   });
 
   worker.on("completed", (job, result) => {

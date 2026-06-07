@@ -1,7 +1,7 @@
 import { database, prisma } from "../config/database";
 import { ImageSafetyService } from "../utils/imageSafety";
 import { redisService } from "../utils/redis";
-import { SandboxedJob } from "bullmq";
+import { Job } from "bullmq";
 
 function formatPost(post: any) {
   if (!post) return null;
@@ -14,7 +14,7 @@ function formatPost(post: any) {
   };
 }
 
-export default async function (job: SandboxedJob) {
+export default async function (job: Job) {
   const { postData } = job.data;
 
   // 1. Ensure DB Connection in child process
